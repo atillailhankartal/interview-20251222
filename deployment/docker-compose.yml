@@ -31,7 +31,7 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./infra/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+      - ./config/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U brokage"]
       interval: 10s
@@ -51,7 +51,7 @@ services:
       - "27018:27017"
     volumes:
       - mongodb_data:/data/db
-      - ./infra/mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+      - ./config/mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -195,7 +195,7 @@ services:
     ports:
       - "8180:8080"
     volumes:
-      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./config/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -213,7 +213,7 @@ services:
     image: quay.io/keycloak/keycloak:23.0
     container_name: brokage-keycloak-init
     volumes:
-      - ./infra/keycloak/disable-ssl.sh:/opt/keycloak/disable-ssl.sh:ro
+      - ./config/keycloak/disable-ssl.sh:/opt/keycloak/disable-ssl.sh:ro
     entrypoint: ["/bin/bash", "/opt/keycloak/disable-ssl.sh"]
     depends_on:
       keycloak:
@@ -276,8 +276,8 @@ services:
       - "8090:8080"   # Traefik Dashboard (custom port)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./config/traefik/dynamic:/etc/traefik/dynamic:ro
     depends_on:
       lgtm:
         condition: service_started
