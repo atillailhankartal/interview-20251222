@@ -143,7 +143,7 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
     ports:
-      - "8082:8081"
+      - "8091:8081"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
       interval: 10s
@@ -167,9 +167,25 @@ services:
       KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
       KAFKA_CLUSTERS_0_METRICS_PORT: 9997
     ports:
-      - "8083:8080"
+      - "8089:8080"
     networks:
       - brokage-network
+
+  # Kafka Init - Create topics on startup
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: brokage-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    volumes:
+      - ./config/kafka/create-topics.sh:/create-topics.sh:ro
+    entrypoint: ["/bin/bash", "/create-topics.sh"]
+    networks:
+      - brokage-network
+    restart: "no"
 
   # ---------------------------------------------------------------------------
   # Identity Layer
@@ -292,6 +308,239 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
       - "traefik.http.routers.dashboard.service=api@internal"
+
+  # ---------------------------------------------------------------------------
+  # Application Layer - Microservices
+  # ---------------------------------------------------------------------------
+
+  # Order Service - Order management
+  order-service:
+    build:
+      context: ../backend/order-service
+      dockerfile: Dockerfile
+    container_name: brokage-order-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage_orders
+      SPRING_DATASOURCE_USERNAME: brokage
+      SPRING_DATASOURCE_PASSWORD: brokage123
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: brokage123
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      LOKI_URL: http://lgtm:3100
+    ports:
+      - "7081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - brokage-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.order-service.rule=PathPrefix(`/api/orders`)"
+      - "traefik.http.services.order-service.loadbalancer.server.port=8081"
+
+  # Asset Service - Asset/Portfolio management
+  asset-service:
+    build:
+      context: ../backend/asset-service
+      dockerfile: Dockerfile
+    container_name: brokage-asset-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage_assets
+      SPRING_DATASOURCE_USERNAME: brokage
+      SPRING_DATASOURCE_PASSWORD: brokage123
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      LOKI_URL: http://lgtm:3100
+    ports:
+      - "7082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - brokage-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.asset-service.rule=PathPrefix(`/api/assets`)"
+      - "traefik.http.services.asset-service.loadbalancer.server.port=8082"
+
+  # Customer Service - Customer management
+  customer-service:
+    build:
+      context: ../backend/customer-service
+      dockerfile: Dockerfile
+    container_name: brokage-customer-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage_customers
+      SPRING_DATASOURCE_USERNAME: brokage
+      SPRING_DATASOURCE_PASSWORD: brokage123
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: brokage123
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      LOKI_URL: http://lgtm:3100
+    ports:
+      - "7083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - brokage-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.customer-service.rule=PathPrefix(`/api/customers`)"
+      - "traefik.http.services.customer-service.loadbalancer.server.port=8083"
+
+  # Order Processor - Order matching & processing
+  order-processor:
+    build:
+      context: ../backend/order-processor
+      dockerfile: Dockerfile
+    container_name: brokage-order-processor
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage_processor
+      SPRING_DATASOURCE_USERNAME: brokage
+      SPRING_DATASOURCE_PASSWORD: brokage123
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: brokage123
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      LOKI_URL: http://lgtm:3100
+    ports:
+      - "7084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8084/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - brokage-network
+
+  # Notification Service - Real-time notifications
+  notification-service:
+    build:
+      context: ../backend/notification-service
+      dockerfile: Dockerfile
+    container_name: brokage-notification-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      LOKI_URL: http://lgtm:3100
+    ports:
+      - "7085:8085"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - brokage-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.notification-service.rule=PathPrefix(`/api/notifications`)"
+      - "traefik.http.services.notification-service.loadbalancer.server.port=8085"
+
+  # Audit Service - Audit logging
+  audit-service:
+    build:
+      context: ../backend/audit-service
+      dockerfile: Dockerfile
+    container_name: brokage-audit-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATA_MONGODB_URI: mongodb://brokage:brokage123@mongodb:27017/brokage_audit?authSource=admin
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      LOKI_URL: http://lgtm:3100
+    ports:
+      - "7086:8086"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8086/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - brokage-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.audit-service.rule=PathPrefix(`/api/audit`)"
+      - "traefik.http.services.audit-service.loadbalancer.server.port=8086"
 
 # =============================================================================
 # Networks

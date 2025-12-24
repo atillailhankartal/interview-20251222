@@ -1,41 +1,29 @@
 # =============================================================================
 # Brokage System - Root Makefile
 # =============================================================================
+# One-click demo: make up
+# =============================================================================
 
-.PHONY: help up down restart logs ps clean build test
+.PHONY: help up down restart logs ps clean build test status
 
 # Default target
 help:
-	@echo "Brokage System - Development Commands"
-	@echo ""
-	@echo "Docker Operations:"
-	@echo "  make up              - Start all services"
-	@echo "  make up-infra        - Start infrastructure only"
-	@echo "  make down            - Stop all services"
-	@echo "  make restart         - Restart all services"
-	@echo "  make logs            - View all logs"
-	@echo "  make ps              - List running services"
-	@echo "  make clean           - Stop and remove volumes"
-	@echo ""
-	@echo "Build Operations:"
-	@echo "  make build           - Build all backend services"
-	@echo "  make test            - Run all tests"
-	@echo "  make compile         - Compile Java sources"
-	@echo ""
-	@echo "URLs:"
-	@echo "  Grafana:     http://localhost:3001 (admin/admin123)"
-	@echo "  Keycloak:    http://localhost:8180 (admin/admin123)"
-	@echo "  Traefik:     http://localhost:8090"
-	@echo "  Kafka UI:    http://localhost:8083"
+	@$(MAKE) -C deployment help
 
 # =============================================================================
-# Docker Operations (delegated to deployment/)
+# ONE-CLICK DEMO
 # =============================================================================
 up:
 	@$(MAKE) -C deployment up
 
+# =============================================================================
+# DOCKER OPERATIONS
+# =============================================================================
 up-infra:
 	@$(MAKE) -C deployment up-infra
+
+up-apps:
+	@$(MAKE) -C deployment up-apps
 
 down:
 	@$(MAKE) -C deployment down
@@ -43,8 +31,14 @@ down:
 restart:
 	@$(MAKE) -C deployment restart
 
+restart-apps:
+	@$(MAKE) -C deployment restart-apps
+
 logs:
 	@$(MAKE) -C deployment logs
+
+logs-apps:
+	@$(MAKE) -C deployment logs-apps
 
 logs-%:
 	@$(MAKE) -C deployment $@
@@ -52,25 +46,25 @@ logs-%:
 ps:
 	@$(MAKE) -C deployment ps
 
+status:
+	@$(MAKE) -C deployment status
+
 clean:
 	@$(MAKE) -C deployment clean
-
-create-topics:
-	@$(MAKE) -C deployment create-topics
 
 list-topics:
 	@$(MAKE) -C deployment list-topics
 
-test-connections:
-	@$(MAKE) -C deployment test-connections
+describe-topics:
+	@$(MAKE) -C deployment describe-topics
 
 # =============================================================================
-# Backend Build Operations
+# BACKEND BUILD
 # =============================================================================
 JAVA_HOME_PATH := /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 
 build:
-	cd backend && JAVA_HOME=$(JAVA_HOME_PATH) ./gradlew build
+	cd backend && JAVA_HOME=$(JAVA_HOME_PATH) ./gradlew bootJar --parallel
 
 test:
 	cd backend && JAVA_HOME=$(JAVA_HOME_PATH) ./gradlew test

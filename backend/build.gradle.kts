@@ -40,4 +40,9 @@ subprojects {
     tasks.withType<Test> {
         useJUnitPlatform()
     }
+
+    // Disable plain jar for all service modules
+    tasks.named<Jar>("jar") {
+        enabled = false
+    }
 }
