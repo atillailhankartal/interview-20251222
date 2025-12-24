@@ -53,7 +53,29 @@
     "totalOrders": "Total Orders",
     "pendingOrders": "Pending Orders",
     "totalAssets": "Total Assets",
-    "portfolioValue": "Portfolio Value"
+    "portfolioValue": "Portfolio Value",
+    "welcomeCard": {
+      "title": "Welcome",
+      "subtitle": "Start trading Turkish stocks with ease",
+      "role": "Role",
+      "newOrder": "New Order",
+      "viewPortfolio": "View Portfolio"
+    },
+    "accountBalance": {
+      "title": "Account Balance",
+      "total": "Total Balance",
+      "available": "Available",
+      "blocked": "Blocked",
+      "deposit": "Deposit Funds"
+    },
+    "recentOrders": {
+      "title": "Recent Orders",
+      "viewAll": "View All"
+    },
+    "portfolio": {
+      "title": "Portfolio Summary",
+      "viewAll": "View All Assets"
+    }
   },
   "orders": {
     "title": "Orders",

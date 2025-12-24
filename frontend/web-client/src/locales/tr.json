@@ -53,7 +53,29 @@
     "totalOrders": "Toplam Emir",
     "pendingOrders": "Bekleyen Emirler",
     "totalAssets": "Toplam Varlık",
-    "portfolioValue": "Portföy Değeri"
+    "portfolioValue": "Portföy Değeri",
+    "welcomeCard": {
+      "title": "Hoş Geldiniz",
+      "subtitle": "Türk hisse senetleri ile kolayca işlem yapmaya başlayın",
+      "role": "Rol",
+      "newOrder": "Yeni Emir",
+      "viewPortfolio": "Portföyü Görüntüle"
+    },
+    "accountBalance": {
+      "title": "Hesap Bakiyesi",
+      "total": "Toplam Bakiye",
+      "available": "Kullanılabilir",
+      "blocked": "Bloke",
+      "deposit": "Para Yatır"
+    },
+    "recentOrders": {
+      "title": "Son Emirler",
+      "viewAll": "Tümünü Görüntüle"
+    },
+    "portfolio": {
+      "title": "Portföy Özeti",
+      "viewAll": "Tüm Varlıkları Görüntüle"
+    }
   },
   "orders": {
     "title": "Emirler",

@@ -6,7 +6,9 @@ import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
 import App from '@/App.vue'
 
-import '@/assets/styles/main.css'
+// Import Metronic styles
+import '@/assets/metronic/styles.css'
+import '@/assets/metronic/keenicons.css'
 
 async function bootstrap() {
   const app = createApp(App)
