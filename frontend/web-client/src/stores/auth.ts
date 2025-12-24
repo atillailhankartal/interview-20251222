@@ -24,13 +24,24 @@ export const useAuthStore = defineStore('auth', () => {
   function setKeycloak(kc: Keycloak) {
     keycloak.value = kc
     if (kc.authenticated && kc.tokenParsed) {
+      const token = kc.tokenParsed as Record<string, unknown>
+
+      // Extract roles from various possible locations
+      const roles: string[] = (
+        (token.realm_access as { roles?: string[] })?.roles ||
+        (token.roles as string[]) ||
+        []
+      )
+
       user.value = {
-        id: kc.tokenParsed.sub || '',
-        email: kc.tokenParsed.email || '',
-        firstName: kc.tokenParsed.given_name || '',
-        lastName: kc.tokenParsed.family_name || '',
-        roles: kc.tokenParsed.realm_access?.roles || []
+        id: (token.sub as string) || '',
+        email: (token.email as string) || '',
+        firstName: (token.given_name as string) || (token.name as string)?.split(' ')[0] || '',
+        lastName: (token.family_name as string) || (token.name as string)?.split(' ').slice(1).join(' ') || '',
+        roles
       }
+
+      console.log('User loaded from token:', user.value)
     }
     initialized.value = true
   }

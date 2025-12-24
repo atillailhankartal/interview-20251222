@@ -1,11 +1,30 @@
 <script setup lang="ts">
 import { useAuthStore } from '@/stores/auth'
 import { useRoute } from 'vue-router'
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 
 const authStore = useAuthStore()
+const { user } = storeToRefs(authStore)
 const route = useRoute()
 const showUserMenu = ref(false)
+const userMenuRef = ref<HTMLElement | null>(null)
+
+// Click outside handler
+function handleClickOutside(event: MouseEvent) {
+  const target = event.target as HTMLElement
+  if (showUserMenu.value && userMenuRef.value && !userMenuRef.value.contains(target)) {
+    showUserMenu.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 // Navigation items
 const navItems = [
@@ -35,6 +54,33 @@ const pageTitle = computed(() => {
     'customers': 'Customers',
   }
   return titles[route.name as string] || 'Dashboard'
+})
+
+// User initials for avatar
+const userInitials = computed(() => {
+  if (!user.value) return '?'
+
+  // Try firstName + lastName first
+  const first = user.value.firstName?.charAt(0) || ''
+  const last = user.value.lastName?.charAt(0) || ''
+  if (first || last) {
+    return (first + last).toUpperCase()
+  }
+
+  // Fallback to email first letter
+  if (user.value.email) {
+    return user.value.email.charAt(0).toUpperCase()
+  }
+
+  return '?'
+})
+
+// Primary role for display
+const userRole = computed(() => {
+  if (authStore.hasRole('ADMIN')) return 'Admin'
+  if (authStore.hasRole('BROKER')) return 'Broker'
+  if (authStore.hasRole('CUSTOMER')) return 'Customer'
+  return 'User'
 })
 </script>
 
@@ -75,25 +121,36 @@ const pageTitle = computed(() => {
             </button>
 
             <!-- User Menu -->
-            <div class="relative" @mouseleave="showUserMenu = false">
-              <button class="kt-btn kt-btn-icon rounded-full" @click="showUserMenu = !showUserMenu">
-                <img class="size-9 rounded-full border-2 border-green-500" src="/assets/media/avatars/300-2.png" alt="User" />
+            <div class="relative" ref="userMenuRef">
+              <button class="rounded-full cursor-pointer" @click="showUserMenu = !showUserMenu">
+                <div class="size-9 rounded-full border-2 border-primary bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
+                  {{ userInitials }}
+                </div>
               </button>
-              <div v-if="showUserMenu" class="absolute right-0 top-full mt-2.5 w-[250px] bg-background border border-border rounded-xl shadow-lg z-50">
-                <div class="flex items-center gap-3 p-4 border-b border-border">
-                  <img class="size-10 rounded-full" src="/assets/media/avatars/300-2.png" alt="User" />
-                  <div class="flex flex-col">
-                    <span class="text-sm font-semibold text-mono">{{ authStore.fullName }}</span>
-                    <span class="text-xs text-secondary-foreground">{{ authStore.email }}</span>
+              <Transition name="dropdown">
+                <div v-if="showUserMenu" class="absolute right-0 top-full mt-2.5 w-[280px] bg-background border border-border rounded-xl shadow-lg z-50">
+                  <div class="flex items-center gap-3 p-4">
+                    <div class="size-12 rounded-full bg-primary/10 flex items-center justify-center text-lg font-semibold text-primary">
+                      {{ userInitials }}
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <span class="text-sm font-semibold text-mono">{{ authStore.fullName || 'User' }}</span>
+                      <span class="text-xs text-secondary-foreground">{{ authStore.email || 'No email' }}</span>
+                      <span class="kt-badge kt-badge-primary kt-badge-sm">{{ userRole }}</span>
+                    </div>
+                  </div>
+                  <div class="border-t border-border"></div>
+                  <div class="p-2">
+                    <button
+                      class="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 text-sm text-red-600 dark:text-red-400 w-full transition-colors"
+                      @click="authStore.logout()"
+                    >
+                      <i class="ki-filled ki-exit-right text-lg"></i>
+                      <span>Sign out</span>
+                    </button>
                   </div>
                 </div>
-                <div class="p-2 border-t border-border">
-                  <button class="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-accent text-sm text-secondary-foreground hover:text-mono w-full" @click="authStore.logout()">
-                    <i class="ki-filled ki-exit-right text-lg"></i>
-                    <span>Sign out</span>
-                  </button>
-                </div>
-              </div>
+              </Transition>
             </div>
           </div>
         </div>
@@ -197,5 +254,17 @@ const pageTitle = computed(() => {
   [style*="margin-left: var(--sidebar-width)"] {
     margin-left: 0 !important;
   }
+}
+
+/* Dropdown transition */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 </style>
