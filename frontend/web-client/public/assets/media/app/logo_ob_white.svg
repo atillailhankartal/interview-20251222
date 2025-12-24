@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1703.84 436.55">
+  <defs>
+    <style>
+      .cls-1 {
+        fill-rule: evenodd;
+      }
+
+      .cls-1, .cls-2, .cls-3 {
+        fill: #fff;
+      }
+
+      .cls-4 {
+        letter-spacing: -.03em;
+      }
+
+      .cls-5 {
+        letter-spacing: .02em;
+      }
+
+      .cls-2 {
+        font-size: 129.32px;
+      }
+
+      .cls-2, .cls-3 {
+        font-family: ArchivoBlack-Regular, 'Archivo Black';
+      }
+
+      .cls-3 {
+        font-size: 251.98px;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g>
+      <path class="cls-1" d="M159.31,338.51v-120.24h-74.92c0,52.78,30.54,98.43,74.92,120.24M180.81,158.15v188.69c11.89,3.46,24.45,5.31,37.46,5.31s25.58-1.86,37.46-5.31v-188.69h-74.92ZM277.23,98.04v240.47c44.38-21.81,74.93-67.46,74.93-120.24s-30.55-98.43-74.93-120.24ZM62.89,219.16v-.88c0-85.81,69.57-155.38,155.38-155.38s155.38,69.57,155.38,155.38-69.57,155.38-155.38,155.38c-.3,0-.59,0-.88,0-35.55-.2-68.26-12.34-94.35-32.61l-39.13,39.14,8.46,8.46-47.9,47.9h173.8c120.54,0,218.27-97.73,218.27-218.27,0-120.54-97.73-218.27-218.27-218.27S0,97.73,0,218.27v173.8l47.9-47.9,8.46,8.46,39.14-39.13c-20.27-26.09-32.41-58.8-32.61-94.35Z"/>
+      <g>
+        <text class="cls-3" transform="translate(500.15 259.59)"><tspan x="0" y="0">ORANGE</tspan></text>
+        <text class="cls-2" transform="translate(511.49 382.12)"><tspan x="0" y="0">B</tspan><tspan class="cls-5" x="100.61" y="0">r</tspan><tspan x="160.09" y="0">o</tspan><tspan class="cls-4" x="246.35" y="0">k</tspan><tspan x="328.2" y="0">er HUB</tspan></text>
+      </g>
+    </g>
+  </g>
+</svg>

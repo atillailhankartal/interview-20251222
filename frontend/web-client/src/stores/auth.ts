@@ -51,8 +51,6 @@ export const useAuthStore = defineStore('auth', () => {
       await keycloak.value.login({
         redirectUri: redirectUri || window.location.origin + '/dashboard'
       })
-    } else {
-      console.error('Keycloak not initialized')
     }
   }
 
