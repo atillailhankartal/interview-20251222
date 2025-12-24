@@ -15,6 +15,9 @@ dependencies {
     api("org.springframework.boot:spring-boot-starter-validation")
     api("org.springframework.boot:spring-boot-starter-json")
 
+    // JPA for entity annotations
+    api("org.springframework.boot:spring-boot-starter-data-jpa")
+
     // Lombok
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
