@@ -19,6 +19,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!keycloak.value?.authenticated)
   const token = computed(() => keycloak.value?.token)
   const fullName = computed(() => user.value ? `${user.value.firstName} ${user.value.lastName}` : '')
+  const email = computed(() => user.value?.email || '')
 
   function setKeycloak(kc: Keycloak) {
     keycloak.value = kc
@@ -49,7 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(redirectUri?: string) {
     if (keycloak.value) {
       await keycloak.value.login({
-        redirectUri: redirectUri || window.location.origin + '/dashboard'
+        redirectUri: redirectUri || window.location.origin + '/'
       })
     }
   }
@@ -88,6 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     token,
     fullName,
+    email,
     setKeycloak,
     setInitialized,
     hasRole,
