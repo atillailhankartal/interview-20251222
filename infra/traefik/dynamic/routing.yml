@@ -1,0 +1,56 @@
+# =============================================================================
+# Traefik - Dynamic Configuration (Routing)
+# =============================================================================
+# Note: Service routing will be configured via Docker labels when services start
+# This file contains routes for infrastructure services
+# =============================================================================
+
+http:
+  routers:
+    # Keycloak - Authentication
+    keycloak:
+      rule: "Host(`auth.brokage.local`)"
+      entryPoints:
+        - web
+      service: keycloak
+      middlewares:
+        - rate-limit-auth
+        - secure-headers
+
+    # Grafana - Monitoring Dashboard
+    grafana:
+      rule: "Host(`monitor.brokage.local`)"
+      entryPoints:
+        - web
+      service: grafana
+
+    # Kafka UI - Message Broker Management
+    kafka-ui:
+      rule: "Host(`kafka.brokage.local`)"
+      entryPoints:
+        - web
+      service: kafka-ui
+
+  services:
+    keycloak:
+      loadBalancer:
+        servers:
+          - url: "http://keycloak:8080"
+        healthCheck:
+          path: /health/ready
+          interval: 10s
+          timeout: 3s
+
+    grafana:
+      loadBalancer:
+        servers:
+          - url: "http://lgtm:3000"
+        healthCheck:
+          path: /api/health
+          interval: 10s
+          timeout: 3s
+
+    kafka-ui:
+      loadBalancer:
+        servers:
+          - url: "http://kafka-ui:8080"

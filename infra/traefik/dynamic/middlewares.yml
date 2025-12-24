@@ -1,0 +1,85 @@
+# =============================================================================
+# Traefik - Dynamic Configuration (Middlewares)
+# =============================================================================
+
+http:
+  middlewares:
+    # Rate Limiting - Global
+    rate-limit-global:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1s
+
+    # Rate Limiting - Orders API
+    rate-limit-orders:
+      rateLimit:
+        average: 10
+        burst: 5
+        period: 1s
+
+    # Rate Limiting - Auth API (Brute-force protection)
+    rate-limit-auth:
+      rateLimit:
+        average: 5
+        burst: 3
+        period: 1s
+
+    # Security Headers
+    secure-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        frameDeny: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"
+        customResponseHeaders:
+          X-Robots-Tag: "noindex,nofollow,nosnippet,noarchive,notranslate,noimageindex"
+
+    # CORS - Development
+    cors-dev:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        accessControlAllowHeaders:
+          - "*"
+        accessControlAllowOriginList:
+          - "http://localhost:3000"
+          - "http://localhost:5173"
+          - "http://app.brokage.local"
+        accessControlAllowCredentials: true
+        accessControlMaxAge: 100
+        addVaryHeader: true
+
+    # Circuit Breaker
+    circuit-breaker:
+      circuitBreaker:
+        expression: "ResponseCodeRatio(500, 600, 0, 600) > 0.30 || NetworkErrorRatio() > 0.10"
+        checkPeriod: 10s
+        fallbackDuration: 30s
+        recoveryDuration: 10s
+
+    # Retry
+    retry-middleware:
+      retry:
+        attempts: 3
+        initialInterval: 100ms
+
+    # Strip Prefix for API
+    strip-api-prefix:
+      stripPrefix:
+        prefixes:
+          - "/api"
+
+    # Add Request ID
+    add-request-id:
+      headers:
+        customRequestHeaders:
+          X-Request-Id: "{{uuid}}"

@@ -1,0 +1,282 @@
+{
+  "realm": "brokage",
+  "enabled": true,
+  "displayName": "Brokage System",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 3600,
+  "refreshTokenMaxReuse": 0,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "System administrator - Full access to all customers",
+        "composite": false
+      },
+      {
+        "name": "BROKER",
+        "description": "Brokerage employee - Access to assigned customers only",
+        "composite": false
+      },
+      {
+        "name": "CUSTOMER",
+        "description": "Customer - Access to own data only",
+        "composite": false
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "admins",
+      "realmRoles": ["ADMIN"]
+    },
+    {
+      "name": "brokers",
+      "realmRoles": ["BROKER"]
+    },
+    {
+      "name": "customers",
+      "realmRoles": ["CUSTOMER"]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@brokage.local",
+      "firstName": "System",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ADMIN"],
+      "groups": ["admins"]
+    },
+    {
+      "username": "broker1",
+      "enabled": true,
+      "email": "broker1@brokage.local",
+      "firstName": "Ahmet",
+      "lastName": "Broker",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "broker123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["BROKER"],
+      "groups": ["brokers"],
+      "attributes": {
+        "brokerId": ["101"]
+      }
+    },
+    {
+      "username": "broker2",
+      "enabled": true,
+      "email": "broker2@brokage.local",
+      "firstName": "Mehmet",
+      "lastName": "Broker",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "broker123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["BROKER"],
+      "groups": ["brokers"],
+      "attributes": {
+        "brokerId": ["102"]
+      }
+    },
+    {
+      "username": "customer1",
+      "enabled": true,
+      "email": "customer1@example.com",
+      "firstName": "Ali",
+      "lastName": "Customer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "customer123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["CUSTOMER"],
+      "groups": ["customers"],
+      "attributes": {
+        "customerId": ["201"]
+      }
+    },
+    {
+      "username": "customer2",
+      "enabled": true,
+      "email": "customer2@example.com",
+      "firstName": "Veli",
+      "lastName": "Customer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "customer123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["CUSTOMER"],
+      "groups": ["customers"],
+      "attributes": {
+        "customerId": ["202"]
+      }
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "brokage-api",
+      "name": "Brokage API",
+      "description": "Backend API Client",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "brokage-api-secret",
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "publicClient": false,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "3600",
+        "oauth2.device.authorization.grant.enabled": "false",
+        "oidc.ciba.grant.enabled": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "user-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "claim.name": "userId",
+            "user.attribute": "customerId",
+            "jsonType.label": "long",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "broker-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "claim.name": "brokerId",
+            "user.attribute": "brokerId",
+            "jsonType.label": "long",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "brokage-web",
+      "name": "Brokage Web UI",
+      "description": "Frontend Web Client",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:5173/*",
+        "http://app.brokage.local/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://app.brokage.local"
+      ],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "user-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "claim.name": "userId",
+            "user.attribute": "customerId",
+            "jsonType.label": "long",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "broker-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "claim.name": "brokerId",
+            "user.attribute": "brokerId",
+            "jsonType.label": "long",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": [
+    "web-origins",
+    "acr",
+    "roles",
+    "profile",
+    "email"
+  ],
+  "defaultOptionalClientScopes": [
+    "address",
+    "phone",
+    "offline_access",
+    "microprofile-jwt"
+  ]
+}

@@ -1,0 +1,321 @@
+# =============================================================================
+# Brokage System - Development Environment
+# =============================================================================
+# Custom Ports (to avoid conflicts):
+#   PostgreSQL: 5433
+#   MongoDB:    27018
+#   Redis:      6380
+#   Kafka:      9093
+#   Zookeeper:  2182
+#   Schema Reg: 8082
+#   Keycloak:   8180
+#   Grafana:    3001
+#   Loki:       3110
+#   Traefik:    80, 8090 (dashboard)
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Infrastructure Layer
+  # ---------------------------------------------------------------------------
+
+  # PostgreSQL - Relational Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: brokage-postgres
+    environment:
+      POSTGRES_USER: brokage
+      POSTGRES_PASSWORD: brokage123
+      POSTGRES_MULTIPLE_DATABASES: brokage_orders,brokage_assets,brokage_customers,brokage_processor
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brokage"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - brokage-network
+
+  # MongoDB - Document Database
+  mongodb:
+    image: mongo:7.0
+    container_name: brokage-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: brokage
+      MONGO_INITDB_ROOT_PASSWORD: brokage123
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./infra/mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - brokage-network
+
+  # Redis - Cache & Distributed Lock
+  redis:
+    image: redis:7-alpine
+    container_name: brokage-redis
+    command: redis-server --appendonly yes --requirepass brokage123
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "brokage123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - brokage-network
+
+  # ---------------------------------------------------------------------------
+  # Messaging Layer
+  # ---------------------------------------------------------------------------
+
+  # Zookeeper - Kafka Coordination
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: brokage-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2182:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - brokage-network
+
+  # Kafka - Message Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: brokage-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "9093:9093"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9093"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - brokage-network
+
+  # Schema Registry - Avro Schema Management
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: brokage-schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    ports:
+      - "8082:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - brokage-network
+
+  # Kafka UI - Management Interface
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: brokage-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: brokage-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9997
+    ports:
+      - "8083:8080"
+    networks:
+      - brokage-network
+
+  # ---------------------------------------------------------------------------
+  # Identity Layer
+  # ---------------------------------------------------------------------------
+
+  # Keycloak - Identity & Access Management
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: brokage-keycloak
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin123
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: brokage
+      KC_DB_PASSWORD: brokage123
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3;if [ $? -eq 0 ]; then echo 'Healthcheck Successful';exit 0;else echo 'Healthcheck Failed';exit 1;fi;"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - brokage-network
+
+  # Keycloak Init - Disable SSL for development
+  keycloak-init:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: brokage-keycloak-init
+    volumes:
+      - ./infra/keycloak/disable-ssl.sh:/opt/keycloak/disable-ssl.sh:ro
+    entrypoint: ["/bin/bash", "/opt/keycloak/disable-ssl.sh"]
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    networks:
+      - brokage-network
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Monitoring Layer - LGTM Stack
+  # ---------------------------------------------------------------------------
+
+  # LGTM All-in-One (Loki, Grafana, Tempo, Mimir + OTEL Collector)
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: brokage-lgtm
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    ports:
+      - "3001:3000"   # Grafana UI
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "3110:3100"   # Loki HTTP (custom port)
+    volumes:
+      - lgtm_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - brokage-network
+
+  # ---------------------------------------------------------------------------
+  # Gateway Layer
+  # ---------------------------------------------------------------------------
+
+  # Traefik - API Gateway & Load Balancer
+  traefik:
+    image: traefik:v3.0
+    container_name: brokage-traefik
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=brokage-network"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      - "--metrics.prometheus=true"
+      - "--tracing.otlp=true"
+      - "--tracing.otlp.grpc.endpoint=lgtm:4317"
+      - "--tracing.otlp.grpc.insecure=true"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8090:8080"   # Traefik Dashboard (custom port)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./infra/traefik/dynamic:/etc/traefik/dynamic:ro
+    depends_on:
+      lgtm:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - brokage-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  brokage-network:
+    driver: bridge
+    name: brokage-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    name: brokage-postgres-data
+  mongodb_data:
+    name: brokage-mongodb-data
+  redis_data:
+    name: brokage-redis-data
+  zookeeper_data:
+    name: brokage-zookeeper-data
+  zookeeper_log:
+    name: brokage-zookeeper-log
+  kafka_data:
+    name: brokage-kafka-data
+  lgtm_data:
+    name: brokage-lgtm-data
