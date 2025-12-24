@@ -28,6 +28,7 @@ help:
 	@echo "  make status          - Check all service health"
 	@echo ""
 	@echo "URLs:"
+	@echo "  Frontend:    http://localhost:3000"
 	@echo "  Grafana:     http://localhost:3001 (admin/admin123)"
 	@echo "  Keycloak:    http://localhost:8180 (admin/admin123)"
 	@echo "  Traefik:     http://localhost:8090"
@@ -83,6 +84,9 @@ up: build-backend
 	@echo "Step 4: Building & starting applications..."
 	docker compose up -d --build order-service asset-service customer-service order-processor notification-service audit-service
 	@echo ""
+	@echo "Step 5: Building & starting frontend..."
+	docker compose up -d --build web-client
+	@echo ""
 	@echo "=========================================="
 	@echo "Brokage System Starting!"
 	@echo "=========================================="
@@ -92,6 +96,7 @@ up: build-backend
 	@echo "Run 'make logs-apps' to view application logs."
 	@echo ""
 	@echo "URLs:"
+	@echo "  Frontend:    http://localhost:3000"
 	@echo "  API Gateway: http://localhost (via Traefik)"
 	@echo "  Grafana:     http://localhost:3001"
 	@echo "  Keycloak:    http://localhost:8180"
@@ -148,6 +153,9 @@ logs-keycloak:
 logs-lgtm:
 	docker compose logs -f lgtm
 
+logs-frontend:
+	docker compose logs -f web-client
+
 # =============================================================================
 # STATUS & MONITORING
 # =============================================================================
@@ -180,6 +188,9 @@ status:
 	@curl -sf http://localhost:7084/actuator/health > /dev/null && echo "  ✓ Order Processor" || echo "  ✗ Order Processor"
 	@curl -sf http://localhost:7085/actuator/health > /dev/null && echo "  ✓ Notification Service" || echo "  ✗ Notification Service"
 	@curl -sf http://localhost:7086/actuator/health > /dev/null && echo "  ✓ Audit Service" || echo "  ✗ Audit Service"
+	@echo ""
+	@echo "Frontend:"
+	@curl -sf http://localhost:3000/health > /dev/null && echo "  ✓ Web Client" || echo "  ✗ Web Client"
 	@echo ""
 
 # =============================================================================

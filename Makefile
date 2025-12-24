@@ -71,3 +71,21 @@ test:
 
 compile:
 	cd backend && JAVA_HOME=$(JAVA_HOME_PATH) ./gradlew compileJava
+
+# =============================================================================
+# FRONTEND DEVELOPMENT
+# =============================================================================
+dev-frontend:
+	@echo "Starting frontend development server..."
+	@echo "Make sure infrastructure is running: make up-infra"
+	@echo ""
+	cd frontend/web-client && npm run dev
+
+install-frontend:
+	cd frontend/web-client && npm install
+
+build-frontend:
+	cd frontend/web-client && npm run build
+
+logs-frontend:
+	@$(MAKE) -C deployment logs-frontend

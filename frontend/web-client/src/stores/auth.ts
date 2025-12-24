@@ -34,6 +34,10 @@ export const useAuthStore = defineStore('auth', () => {
     initialized.value = true
   }
 
+  function setInitialized() {
+    initialized.value = true
+  }
+
   function hasRole(role: string): boolean {
     return user.value?.roles.includes(role) || false
   }
@@ -47,6 +51,8 @@ export const useAuthStore = defineStore('auth', () => {
       await keycloak.value.login({
         redirectUri: redirectUri || window.location.origin + '/dashboard'
       })
+    } else {
+      console.error('Keycloak not initialized')
     }
   }
 
@@ -85,6 +91,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     fullName,
     setKeycloak,
+    setInitialized,
     hasRole,
     hasAnyRole,
     login,

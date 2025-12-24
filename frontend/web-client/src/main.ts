@@ -14,14 +14,21 @@ async function bootstrap() {
   // Install Pinia first (needed for auth store)
   app.use(pinia)
 
+  // Get auth store
+  const authStore = useAuthStore()
+
   // Initialize Keycloak and update auth store
   try {
     const keycloak = await initKeycloak()
-    const authStore = useAuthStore()
-    authStore.setKeycloak(keycloak)
+    if (keycloak) {
+      authStore.setKeycloak(keycloak)
+    } else {
+      authStore.setInitialized()
+    }
   } catch (error) {
     console.error('Failed to initialize Keycloak:', error)
-    // Continue without auth for development
+    // Mark as initialized to show login page
+    authStore.setInitialized()
   }
 
   // Install plugins
