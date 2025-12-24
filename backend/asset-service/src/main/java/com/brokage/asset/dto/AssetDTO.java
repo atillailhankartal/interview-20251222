@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Data
 @Builder
@@ -16,12 +15,11 @@ import java.util.UUID;
 @AllArgsConstructor
 public class AssetDTO {
 
-    private UUID id;
+    private Long id;
     private String symbol;
     private String name;
     private AssetType type;
     private String description;
-    private BigDecimal currentPrice;
     private BigDecimal minOrderQuantity;
     private BigDecimal lotSize;
     private Boolean active;

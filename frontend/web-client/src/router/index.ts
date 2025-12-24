@@ -1,6 +1,13 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
+// Role constants
+export const ROLES = {
+  ADMIN: 'ADMIN',
+  BROKER: 'BROKER',
+  CUSTOMER: 'CUSTOMER'
+} as const
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/auth/login',
@@ -15,25 +22,53 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'dashboard',
-        component: () => import('@/views/DashboardView.vue')
+        component: () => import('@/views/DashboardView.vue'),
+        meta: { title: 'Dashboard' }
       },
       {
         path: 'orders',
         name: 'orders',
-        component: () => import('@/views/OrdersView.vue')
+        component: () => import('@/views/OrdersView.vue'),
+        meta: { title: 'Orders' }
       },
       {
-        path: 'assets',
-        name: 'assets',
-        component: () => import('@/views/AssetsView.vue')
+        path: 'market',
+        name: 'market',
+        component: () => import('@/views/MarketView.vue'),
+        meta: { title: 'Market' }
+      },
+      {
+        path: 'portfolio',
+        name: 'portfolio',
+        component: () => import('@/views/PortfolioView.vue'),
+        meta: {
+          title: 'My Assets',
+          roles: [ROLES.CUSTOMER]
+        }
       },
       {
         path: 'customers',
         name: 'customers',
         component: () => import('@/views/CustomersView.vue'),
-        meta: { roles: ['ADMIN', 'BROKER'] }
+        meta: {
+          title: 'Customers',
+          roles: [ROLES.ADMIN, ROLES.BROKER]
+        }
+      },
+      {
+        path: 'brokers',
+        name: 'brokers',
+        component: () => import('@/views/BrokersView.vue'),
+        meta: {
+          title: 'Brokers',
+          roles: [ROLES.ADMIN]
+        }
       }
     ]
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ]
 

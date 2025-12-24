@@ -79,7 +79,9 @@ http:
           - "/api"
 
     # Add Request ID
+    # Note: Traefik doesn't have built-in uuid function
+    # Request ID is added by the service or via plugin
     add-request-id:
       headers:
         customRequestHeaders:
-          X-Request-Id: "{{uuid}}"
+          X-Forwarded-By: "traefik"

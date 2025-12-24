@@ -1,12 +1,65 @@
 # =============================================================================
 # Traefik - Dynamic Configuration (Routing)
 # =============================================================================
-# Note: Service routing will be configured via Docker labels when services start
-# This file contains routes for infrastructure services
+# Static routes for all services (Docker provider fallback)
 # =============================================================================
 
 http:
   routers:
+    # ---------------------------------------------------------------------------
+    # API Routes (PathPrefix based)
+    # ---------------------------------------------------------------------------
+
+    # Asset Service - Assets, Stocks, Market
+    asset-service:
+      rule: "PathPrefix(`/api/assets`) || PathPrefix(`/api/stocks`) || PathPrefix(`/api/market`)"
+      entryPoints:
+        - web
+      service: asset-service
+      middlewares:
+        - cors-dev
+
+    # Order Service - Orders
+    order-service:
+      rule: "PathPrefix(`/api/orders`)"
+      entryPoints:
+        - web
+      service: order-service
+      middlewares:
+        - cors-dev
+        - rate-limit-orders
+
+    # Customer Service - Customers
+    customer-service:
+      rule: "PathPrefix(`/api/customers`)"
+      entryPoints:
+        - web
+      service: customer-service
+      middlewares:
+        - cors-dev
+
+    # Notification Service - Notifications
+    notification-service:
+      rule: "PathPrefix(`/api/notifications`)"
+      entryPoints:
+        - web
+      service: notification-service
+      middlewares:
+        - cors-dev
+
+    # Audit Service - Audit logs
+    audit-service:
+      rule: "PathPrefix(`/api/audit`)"
+      entryPoints:
+        - web
+      service: audit-service
+      middlewares:
+        - cors-dev
+
+    # ---------------------------------------------------------------------------
+    # Infrastructure Routes (Host based)
+    # ---------------------------------------------------------------------------
+
     # Keycloak - Authentication
     keycloak:
       rule: "Host(`auth.brokage.local`)"
@@ -32,6 +85,37 @@ http:
       service: kafka-ui
 
   services:
+    # ---------------------------------------------------------------------------
+    # API Services
+    # ---------------------------------------------------------------------------
+    asset-service:
+      loadBalancer:
+        servers:
+          - url: "http://asset-service:8082"
+
+    order-service:
+      loadBalancer:
+        servers:
+          - url: "http://order-service:8081"
+
+    customer-service:
+      loadBalancer:
+        servers:
+          - url: "http://customer-service:8083"
+
+    notification-service:
+      loadBalancer:
+        servers:
+          - url: "http://notification-service:8085"
+
+    audit-service:
+      loadBalancer:
+        servers:
+          - url: "http://audit-service:8086"
+
+    # ---------------------------------------------------------------------------
+    # Infrastructure Services
+    # ---------------------------------------------------------------------------
     keycloak:
       loadBalancer:
         servers:

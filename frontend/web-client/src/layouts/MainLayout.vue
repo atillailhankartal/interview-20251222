@@ -26,12 +26,14 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
 
-// Navigation items
+// Navigation items with role-based visibility
 const navItems = [
   { name: 'dashboard', icon: 'ki-chart-line-star', to: '/', tooltip: 'Dashboard' },
   { name: 'orders', icon: 'ki-handcart', to: '/orders', tooltip: 'Orders' },
-  { name: 'assets', icon: 'ki-wallet', to: '/assets', tooltip: 'Assets' },
+  { name: 'portfolio', icon: 'ki-wallet', to: '/portfolio', tooltip: 'My Assets', roles: ['CUSTOMER'] },
+  { name: 'market', icon: 'ki-graph-up', to: '/market', tooltip: 'Market' },
   { name: 'customers', icon: 'ki-users', to: '/customers', tooltip: 'Customers', roles: ['ADMIN', 'BROKER'] },
+  { name: 'brokers', icon: 'ki-briefcase', to: '/brokers', tooltip: 'Brokers', roles: ['ADMIN'] },
 ]
 
 const filteredNavItems = computed(() => {
@@ -50,8 +52,10 @@ const pageTitle = computed(() => {
   const titles: Record<string, string> = {
     'dashboard': 'Dashboard',
     'orders': 'Orders',
-    'assets': 'Assets',
+    'market': 'Market',
+    'portfolio': 'My Assets',
     'customers': 'Customers',
+    'brokers': 'Brokers',
   }
   return titles[route.name as string] || 'Dashboard'
 })

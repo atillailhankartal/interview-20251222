@@ -73,6 +73,13 @@ spring:
     username: postgres
     password: postgres
 
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
   kafka:
     bootstrap-servers: kafka:29092
     properties:

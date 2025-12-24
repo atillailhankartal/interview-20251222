@@ -33,9 +33,6 @@ public class Asset extends BaseEntity {
     @Column(name = "description", length = 1000)
     private String description;
 
-    @Column(name = "current_price", precision = 19, scale = 4)
-    private BigDecimal currentPrice;
-
     @Column(name = "min_order_quantity", precision = 19, scale = 4)
     @Builder.Default
     private BigDecimal minOrderQuantity = BigDecimal.ONE;

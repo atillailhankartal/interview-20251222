@@ -358,8 +358,8 @@ services:
   # Asset Service - Asset/Portfolio management
   asset-service:
     build:
-      context: ../backend/asset-service
-      dockerfile: Dockerfile
+      context: ../backend
+      dockerfile: asset-service/Dockerfile
     container_name: brokage-asset-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -390,7 +390,7 @@ services:
       - brokage-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.asset-service.rule=PathPrefix(`/api/assets`)"
+      - "traefik.http.routers.asset-service.rule=PathPrefix(`/api/assets`) || PathPrefix(`/api/stocks`) || PathPrefix(`/api/market`)"
       - "traefik.http.services.asset-service.loadbalancer.server.port=8082"
 
   # Customer Service - Customer management
