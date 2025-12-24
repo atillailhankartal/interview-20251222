@@ -227,15 +227,17 @@ public class OrderService {
      */
     private void createOutboxEvent(Order order, String topic, String eventType) {
         try {
-            Map<String, Object> payload = Map.of(
-                    "orderId", order.getId().toString(),
-                    "customerId", order.getCustomerId().toString(),
-                    "assetSymbol", order.getAssetSymbol(),
-                    "orderSide", order.getOrderSide().name(),
-                    "size", order.getSize().toString(),
-                    "price", order.getPrice().toString(),
-                    "status", order.getStatus().name(),
-                    "timestamp", LocalDateTime.now().toString()
+            Map<String, Object> payload = Map.ofEntries(
+                    Map.entry("eventType", eventType),
+                    Map.entry("orderId", order.getId().toString()),
+                    Map.entry("customerId", order.getCustomerId().toString()),
+                    Map.entry("assetSymbol", order.getAssetSymbol()),
+                    Map.entry("orderSide", order.getOrderSide().name()),
+                    Map.entry("size", order.getSize().toString()),
+                    Map.entry("price", order.getPrice().toString()),
+                    Map.entry("status", order.getStatus().name()),
+                    Map.entry("totalValue", order.getTotalValue().toString()),
+                    Map.entry("timestamp", LocalDateTime.now().toString())
             );
 
             OutboxEvent event = OutboxEvent.builder()
