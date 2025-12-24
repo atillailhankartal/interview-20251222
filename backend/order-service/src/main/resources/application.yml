@@ -74,14 +74,22 @@ spring:
       on-profile: docker
 
   datasource:
-    url: jdbc:postgresql://postgres:5432/orders_db
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://postgres:5432/brokage_orders
+    username: brokage
+    password: brokage123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   data:
     redis:
       host: redis
       port: 6379
+      password: brokage123
 
   kafka:
     bootstrap-servers: kafka:29092

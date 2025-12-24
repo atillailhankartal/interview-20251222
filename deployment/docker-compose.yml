@@ -316,8 +316,8 @@ services:
   # Order Service - Order management
   order-service:
     build:
-      context: ../backend/order-service
-      dockerfile: Dockerfile
+      context: ../backend
+      dockerfile: order-service/Dockerfile
     container_name: brokage-order-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
