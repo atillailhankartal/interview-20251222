@@ -1,0 +1,56 @@
+spring:
+  profiles:
+    active: integration
+
+  datasource:
+    url: jdbc:tc:postgresql:15-alpine:///brokage?TC_DAEMON=true
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: test
+    password: test
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/brokage_test}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    consumer:
+      group-id: integration-test-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER:http://localhost:8180/realms/brokage}
+
+# Service URLs for integration tests
+services:
+  order-service:
+    url: ${ORDER_SERVICE_URL:http://localhost:8081}
+  asset-service:
+    url: ${ASSET_SERVICE_URL:http://localhost:8082}
+  customer-service:
+    url: ${CUSTOMER_SERVICE_URL:http://localhost:8083}
+
+logging:
+  level:
+    root: INFO
+    com.brokage: DEBUG
+    org.springframework.kafka: INFO
+    org.testcontainers: INFO

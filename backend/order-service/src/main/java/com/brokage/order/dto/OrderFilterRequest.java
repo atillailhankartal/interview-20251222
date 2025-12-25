@@ -17,7 +17,7 @@ import java.util.UUID;
 public class OrderFilterRequest {
 
     private UUID customerId;
-    private String assetSymbol;
+    private String assetName;
     private OrderSide orderSide;
     private OrderStatus status;
     private LocalDateTime startDate;

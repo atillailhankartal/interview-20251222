@@ -11,7 +11,7 @@ function handleLogin() {
 <template>
   <div class="grid lg:grid-cols-2 grow">
     <div class="flex justify-center items-center p-8 lg:p-10 order-2 lg:order-1">
-      <div class="kt-card max-w-[370px] w-full">
+      <div class="kt-card max-w-[480px] w-full">
         <div class="kt-card-content flex flex-col gap-5 p-10">
           <div class="text-center mb-2.5">
             <h3 class="text-lg font-medium text-mono leading-none mb-2.5">
@@ -44,27 +44,27 @@ function handleLogin() {
               <tbody class="text-blue-700 dark:text-blue-300">
                 <tr>
                   <td class="py-1">Admin</td>
-                  <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">admin</code></td>
+                  <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">nick.fury@brokage.com</code></td>
                   <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">admin123</code></td>
                 </tr>
                 <tr>
-                  <td class="py-1">Broker (Ahmet)</td>
-                  <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">broker1</code></td>
+                  <td class="py-1">Broker (Tony)</td>
+                  <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">tony.stark@brokage.com</code></td>
                   <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">broker123</code></td>
                 </tr>
                 <tr>
-                  <td class="py-1">Broker (Mehmet)</td>
-                  <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">broker2</code></td>
+                  <td class="py-1">Broker (Steve)</td>
+                  <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">steve.rogers@brokage.com</code></td>
                   <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">broker123</code></td>
                 </tr>
                 <tr>
-                  <td class="py-1">Customer (Ali)</td>
-                  <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">customer1</code></td>
+                  <td class="py-1">Customer (Peter)</td>
+                  <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">peter.parker@brokage.com</code></td>
                   <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">customer123</code></td>
                 </tr>
                 <tr>
-                  <td class="py-1">Customer (Veli)</td>
-                  <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">customer2</code></td>
+                  <td class="py-1">Customer (Bruce)</td>
+                  <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">bruce.banner@brokage.com</code></td>
                   <td class="py-1"><code class="bg-blue-100 dark:bg-blue-900 px-1.5 rounded">customer123</code></td>
                 </tr>
               </tbody>

@@ -1,15 +1,43 @@
 spring:
   application:
     name: notification-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
 
 server:
   port: 8085
+
+# Default notification settings
+notification:
+  email:
+    enabled: false
+    from: noreply@brokage.com
+    from-name: Brokage Trading Platform
+  sms:
+    enabled: false
+    provider: LOG
 
 ---
 spring:
   config:
     activate:
       on-profile: dev
+
+  data:
+    mongodb:
+      uri: mongodb://brokage:brokage123@localhost:27018/brokage_notifications?authSource=admin
+
+  mail:
+    host: localhost
+    port: 1026
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
 
   kafka:
     bootstrap-servers: localhost:9093
@@ -41,7 +69,7 @@ management:
       probability: 1.0
   otlp:
     tracing:
-      endpoint: http://localhost:4317
+      endpoint: http://localhost:4318
 
 logging:
   level:
@@ -53,6 +81,10 @@ spring:
   config:
     activate:
       on-profile: docker
+
+  data:
+    mongodb:
+      uri: mongodb://brokage:brokage123@mongodb:27017/brokage_notifications?authSource=admin
 
   kafka:
     bootstrap-servers: kafka:29092
@@ -67,9 +99,16 @@ spring:
           jwk-set-uri: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  tracing:
+    sampling:
+      probability: 1.0
   otlp:
     tracing:
-      endpoint: http://lgtm:4317
+      endpoint: http://lgtm:4318
 
 ---
 spring:

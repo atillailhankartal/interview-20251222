@@ -20,9 +20,9 @@ public class CreateOrderRequest {
     @NotNull(message = "Customer ID is required")
     private UUID customerId;
 
-    @NotBlank(message = "Asset symbol is required")
-    @Size(max = 20, message = "Asset symbol must not exceed 20 characters")
-    private String assetSymbol;
+    @NotBlank(message = "Asset name is required")
+    @Size(max = 20, message = "Asset name must not exceed 20 characters")
+    private String assetName;
 
     @NotNull(message = "Order side is required")
     private OrderSide orderSide;

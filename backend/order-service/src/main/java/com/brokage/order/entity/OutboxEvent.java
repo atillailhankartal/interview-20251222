@@ -55,6 +55,28 @@ public class OutboxEvent {
     @Column(name = "error_message", length = 1000)
     private String errorMessage;
 
+    // Audit enrichment fields
+    @Column(name = "trace_id", length = 64)
+    private String traceId;
+
+    @Column(name = "span_id", length = 32)
+    private String spanId;
+
+    @Column(name = "ip_address", length = 45)
+    private String ipAddress;
+
+    @Column(name = "user_agent", length = 500)
+    private String userAgent;
+
+    @Column(name = "request_id", length = 64)
+    private String requestId;
+
+    @Column(name = "performed_by")
+    private UUID performedBy;
+
+    @Column(name = "performed_by_role", length = 50)
+    private String performedByRole;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

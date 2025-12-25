@@ -1,6 +1,10 @@
 spring:
   application:
     name: audit-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
 
 server:
   port: 8086
@@ -13,7 +17,7 @@ spring:
 
   data:
     mongodb:
-      uri: mongodb://admin:admin123@localhost:27018/audit_db?authSource=admin
+      uri: mongodb://brokage:brokage123@localhost:27018/brokage_audit?authSource=admin
 
   kafka:
     bootstrap-servers: localhost:9093
@@ -45,7 +49,7 @@ management:
       probability: 1.0
   otlp:
     tracing:
-      endpoint: http://localhost:4317
+      endpoint: http://localhost:4318
 
 logging:
   level:
@@ -60,7 +64,7 @@ spring:
 
   data:
     mongodb:
-      uri: mongodb://admin:admin123@mongodb:27017/audit_db?authSource=admin
+      uri: mongodb://brokage:brokage123@mongodb:27017/brokage_audit?authSource=admin
 
   kafka:
     bootstrap-servers: kafka:29092
@@ -75,9 +79,16 @@ spring:
           jwk-set-uri: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  tracing:
+    sampling:
+      probability: 1.0
   otlp:
     tracing:
-      endpoint: http://lgtm:4317
+      endpoint: http://lgtm:4318
 
 ---
 spring:

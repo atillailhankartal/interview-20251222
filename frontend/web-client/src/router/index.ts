@@ -42,8 +42,8 @@ const routes: RouteRecordRaw[] = [
         name: 'portfolio',
         component: () => import('@/views/PortfolioView.vue'),
         meta: {
-          title: 'My Assets',
-          roles: [ROLES.CUSTOMER]
+          title: 'Assets',
+          roles: [ROLES.CUSTOMER, ROLES.ADMIN, ROLES.BROKER]
         }
       },
       {
@@ -61,6 +61,33 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/BrokersView.vue'),
         meta: {
           title: 'Brokers',
+          roles: [ROLES.ADMIN]
+        }
+      },
+      {
+        path: 'analytics',
+        name: 'analytics',
+        component: () => import('@/views/AnalyticsView.vue'),
+        meta: {
+          title: 'Analytics',
+          roles: [ROLES.ADMIN, ROLES.BROKER, ROLES.CUSTOMER]
+        }
+      },
+      {
+        path: 'reports',
+        name: 'reports',
+        component: () => import('@/views/ReportsView.vue'),
+        meta: {
+          title: 'Reports',
+          roles: [ROLES.ADMIN, ROLES.BROKER, ROLES.CUSTOMER]
+        }
+      },
+      {
+        path: 'audit',
+        name: 'audit',
+        component: () => import('@/views/AuditView.vue'),
+        meta: {
+          title: 'Audit Logs',
           roles: [ROLES.ADMIN]
         }
       }

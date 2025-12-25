@@ -12,9 +12,9 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/assets_db
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:5433/brokage
+    username: brokage
+    password: brokage123
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -53,12 +53,16 @@ management:
       probability: 1.0
   otlp:
     tracing:
-      endpoint: http://localhost:4317
+      endpoint: http://localhost:4318
 
 logging:
   level:
     root: INFO
     com.brokage: DEBUG
+
+services:
+  customer-service:
+    url: http://localhost:8083
 
 ---
 spring:
@@ -67,7 +71,7 @@ spring:
       on-profile: docker
 
   datasource:
-    url: jdbc:postgresql://postgres:5432/brokage_assets
+    url: jdbc:postgresql://postgres:5432/brokage
     username: brokage
     password: brokage123
 
@@ -98,9 +102,20 @@ spring:
           jwk-set-uri: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  tracing:
+    sampling:
+      probability: 1.0
   otlp:
     tracing:
-      endpoint: http://lgtm:4317
+      endpoint: http://lgtm:4318
+
+services:
+  customer-service:
+    url: http://customer-service:8083
 
 ---
 spring:
@@ -121,3 +136,7 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:8180/realms/brokage
+
+services:
+  customer-service:
+    url: http://localhost:8083

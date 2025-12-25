@@ -1,85 +1,36 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-
-interface Broker {
-  id: number
-  firstName: string
-  lastName: string
-  email: string
-  status: 'ACTIVE' | 'INACTIVE'
-  customerCount: number
-  totalPortfolioValue: number
-  createdAt: string
-}
+import { brokerService, type Broker, type BrokerFilters, type CustomerStatus } from '@/services'
 
 const authStore = useAuthStore()
 
 const brokers = ref<Broker[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
-const searchQuery = ref('')
-const statusFilter = ref('')
+const totalElements = ref(0)
+const totalPages = ref(0)
+const currentPage = ref(0)
+const pageSize = ref(20)
 
-// Mock data for UI development
-const mockBrokers: Broker[] = [
-  {
-    id: 1,
-    firstName: 'Ahmet',
-    lastName: 'Yilmaz',
-    email: 'ahmet.yilmaz@brokage.com',
-    status: 'ACTIVE',
-    customerCount: 45,
-    totalPortfolioValue: 2500000,
-    createdAt: '2023-06-15'
-  },
-  {
-    id: 2,
-    firstName: 'Fatma',
-    lastName: 'Demir',
-    email: 'fatma.demir@brokage.com',
-    status: 'ACTIVE',
-    customerCount: 38,
-    totalPortfolioValue: 1850000,
-    createdAt: '2023-08-22'
-  },
-  {
-    id: 3,
-    firstName: 'Mehmet',
-    lastName: 'Ozturk',
-    email: 'mehmet.ozturk@brokage.com',
-    status: 'INACTIVE',
-    customerCount: 12,
-    totalPortfolioValue: 450000,
-    createdAt: '2024-01-10'
-  }
-]
+// Filters
+const filters = ref<BrokerFilters>({
+  search: undefined,
+  status: undefined
+})
 
 // Computed stats
-const totalBrokers = computed(() => brokers.value.length)
+const totalBrokers = computed(() => totalElements.value)
 const activeBrokers = computed(() => brokers.value.filter(b => b.status === 'ACTIVE').length)
-const totalCustomers = computed(() => brokers.value.reduce((sum, b) => sum + b.customerCount, 0))
-const totalPortfolio = computed(() => brokers.value.reduce((sum, b) => sum + b.totalPortfolioValue, 0))
-
-// Filtered brokers
-const filteredBrokers = computed(() => {
-  return brokers.value.filter(broker => {
-    const matchesSearch = searchQuery.value === '' ||
-      broker.firstName.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      broker.lastName.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      broker.email.toLowerCase().includes(searchQuery.value.toLowerCase())
-
-    const matchesStatus = statusFilter.value === '' || broker.status === statusFilter.value
-
-    return matchesSearch && matchesStatus
-  })
-})
+const hasBrokers = computed(() => brokers.value.length > 0)
+const isFirstPage = computed(() => currentPage.value === 0)
+const isLastPage = computed(() => currentPage.value >= totalPages.value - 1)
 
 // Format currency
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('tr-TR', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'TRY',
+    currency: 'USD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   }).format(value)
@@ -100,26 +51,65 @@ function getInitials(firstName: string, lastName: string): string {
 }
 
 // Fetch brokers
-async function fetchBrokers() {
+async function fetchBrokers(page = 0) {
   loading.value = true
   error.value = null
 
   try {
-    // TODO: Replace with actual API call
-    // const apiUrl = import.meta.env.VITE_API_URL || ''
-    // const response = await fetch(`${apiUrl}/api/brokers`, {
-    //   headers: { 'Authorization': `Bearer ${authStore.token}` }
-    // })
+    const response = await brokerService.getBrokers({
+      ...filters.value,
+      page,
+      size: pageSize.value
+    })
 
-    // Mock for now
-    await new Promise(resolve => setTimeout(resolve, 500))
-    brokers.value = mockBrokers
+    if (response.success && response.data) {
+      brokers.value = response.data.content
+      totalElements.value = response.data.totalElements
+      totalPages.value = response.data.totalPages
+      currentPage.value = response.data.number
+    }
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Unknown error'
+    error.value = e instanceof Error ? e.message : 'Failed to fetch brokers'
     console.error('Failed to fetch brokers:', e)
   } finally {
     loading.value = false
   }
+}
+
+function setFilter(key: keyof BrokerFilters, value: string | undefined) {
+  if (key === 'search') {
+    filters.value.search = value
+  } else if (key === 'status') {
+    filters.value.status = value as CustomerStatus | undefined
+  }
+  fetchBrokers(0)
+}
+
+function nextPage() {
+  if (!isLastPage.value) {
+    fetchBrokers(currentPage.value + 1)
+  }
+}
+
+function prevPage() {
+  if (!isFirstPage.value) {
+    fetchBrokers(currentPage.value - 1)
+  }
+}
+
+function goToPage(page: number) {
+  if (page >= 0 && page < totalPages.value) {
+    fetchBrokers(page)
+  }
+}
+
+// Debounced search
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+const onSearchInput = (value: string) => {
+  if (searchTimeout) clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    setFilter('search', value || undefined)
+  }, 300)
 }
 
 onMounted(() => {
@@ -136,9 +126,9 @@ onMounted(() => {
         <p class="text-sm text-secondary-foreground">Manage brokers and customer assignments</p>
       </div>
       <div class="flex items-center gap-2.5">
-        <button class="kt-btn kt-btn-primary">
-          <i class="ki-filled ki-plus-squared me-2"></i>
-          Add Broker
+        <button @click="fetchBrokers()" class="kt-btn kt-btn-light" :disabled="loading">
+          <i class="ki-filled ki-arrows-circle me-2" :class="{ 'animate-spin': loading }"></i>
+          Refresh
         </button>
       </div>
     </div>
@@ -153,7 +143,10 @@ onMounted(() => {
             </div>
             <div>
               <div class="text-xs text-secondary-foreground">Total Brokers</div>
-              <div class="text-lg font-semibold text-mono">{{ totalBrokers }}</div>
+              <div class="text-lg font-semibold text-mono">
+                <template v-if="loading"><span class="animate-pulse">...</span></template>
+                <template v-else>{{ totalBrokers }}</template>
+              </div>
             </div>
           </div>
         </div>
@@ -166,33 +159,10 @@ onMounted(() => {
             </div>
             <div>
               <div class="text-xs text-secondary-foreground">Active</div>
-              <div class="text-lg font-semibold text-mono">{{ activeBrokers }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="kt-card flex-1 min-w-[200px]">
-        <div class="kt-card-content p-5">
-          <div class="flex items-center gap-3">
-            <div class="flex items-center justify-center size-10 rounded-lg bg-blue-500/10">
-              <i class="ki-filled ki-users text-blue-500 text-lg"></i>
-            </div>
-            <div>
-              <div class="text-xs text-secondary-foreground">Total Customers</div>
-              <div class="text-lg font-semibold text-mono">{{ totalCustomers }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="kt-card flex-1 min-w-[200px]">
-        <div class="kt-card-content p-5">
-          <div class="flex items-center gap-3">
-            <div class="flex items-center justify-center size-10 rounded-lg bg-yellow-500/10">
-              <i class="ki-filled ki-dollar text-yellow-500 text-lg"></i>
-            </div>
-            <div>
-              <div class="text-xs text-secondary-foreground">Total Portfolio</div>
-              <div class="text-lg font-semibold text-mono">{{ formatCurrency(totalPortfolio) }}</div>
+              <div class="text-lg font-semibold text-mono">
+                <template v-if="loading"><span class="animate-pulse">...</span></template>
+                <template v-else>{{ activeBrokers }}</template>
+              </div>
             </div>
           </div>
         </div>
@@ -203,6 +173,7 @@ onMounted(() => {
     <div v-if="error" class="kt-alert kt-alert-danger">
       <i class="ki-filled ki-shield-cross text-lg"></i>
       <span>{{ error }}</span>
+      <button @click="fetchBrokers()" class="kt-btn kt-btn-sm kt-btn-danger ms-auto">Retry</button>
     </div>
 
     <!-- Brokers Table -->
@@ -210,24 +181,28 @@ onMounted(() => {
       <div class="kt-card-header">
         <h3 class="kt-card-title">All Brokers</h3>
         <div class="flex items-center gap-2">
-          <select v-model="statusFilter" class="kt-select kt-select-sm w-[120px]">
+          <select
+            class="kt-select kt-select-sm w-[120px]"
+            :value="filters.status || ''"
+            @change="setFilter('status', ($event.target as HTMLSelectElement).value || undefined)"
+          >
             <option value="">All Status</option>
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
           </select>
           <input
-            v-model="searchQuery"
             type="text"
             class="kt-input kt-input-sm w-[200px]"
             placeholder="Search broker..."
+            @input="onSearchInput(($event.target as HTMLInputElement).value)"
           />
         </div>
       </div>
       <div class="kt-card-content p-0">
-        <div v-if="loading" class="flex items-center justify-center py-10">
+        <div v-if="loading && !hasBrokers" class="flex items-center justify-center py-10">
           <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
-        <div v-else-if="filteredBrokers.length === 0" class="flex flex-col items-center justify-center py-10 text-secondary-foreground">
+        <div v-else-if="!hasBrokers" class="flex flex-col items-center justify-center py-10 text-secondary-foreground">
           <i class="ki-filled ki-briefcase text-4xl mb-3 opacity-50"></i>
           <p>No brokers found</p>
         </div>
@@ -237,15 +212,14 @@ onMounted(() => {
               <tr>
                 <th class="min-w-[200px]">Broker</th>
                 <th class="min-w-[180px]">Email</th>
-                <th class="min-w-[100px] text-center">Customers</th>
-                <th class="min-w-[140px] text-right">Portfolio Value</th>
+                <th class="min-w-[80px]">Tier</th>
                 <th class="min-w-[100px] text-center">Status</th>
                 <th class="min-w-[120px]">Joined</th>
                 <th class="w-[100px]">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="broker in filteredBrokers" :key="broker.id">
+              <tr v-for="broker in brokers" :key="broker.id">
                 <td>
                   <div class="flex items-center gap-3">
                     <div class="size-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
@@ -253,15 +227,23 @@ onMounted(() => {
                     </div>
                     <div>
                       <div class="font-medium text-mono">{{ broker.firstName }} {{ broker.lastName }}</div>
-                      <div class="text-xs text-secondary-foreground">ID: BRK-{{ String(broker.id).padStart(3, '0') }}</div>
+                      <div class="text-xs text-secondary-foreground">ID: {{ broker.id.substring(0, 8) }}...</div>
                     </div>
                   </div>
                 </td>
                 <td class="text-secondary-foreground">{{ broker.email }}</td>
-                <td class="text-center">
-                  <span class="kt-badge kt-badge-primary kt-badge-sm">{{ broker.customerCount }}</span>
+                <td>
+                  <span
+                    class="kt-badge kt-badge-sm"
+                    :class="{
+                      'kt-badge-warning': broker.tier === 'VIP',
+                      'kt-badge-primary': broker.tier === 'PREMIUM',
+                      'kt-badge-secondary': broker.tier === 'STANDARD'
+                    }"
+                  >
+                    {{ broker.tier }}
+                  </span>
                 </td>
-                <td class="text-right font-medium">{{ formatCurrency(broker.totalPortfolioValue) }}</td>
                 <td class="text-center">
                   <span
                     class="kt-badge kt-badge-sm"
@@ -276,11 +258,8 @@ onMounted(() => {
                     <button class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost" title="View Details">
                       <i class="ki-filled ki-eye text-lg"></i>
                     </button>
-                    <button class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost" title="Edit">
-                      <i class="ki-filled ki-pencil text-lg"></i>
-                    </button>
-                    <button class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost" title="Assign Customers">
-                      <i class="ki-filled ki-user-tick text-lg"></i>
+                    <button class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost" title="View Customers">
+                      <i class="ki-filled ki-users text-lg"></i>
                     </button>
                   </div>
                 </td>
@@ -292,14 +271,33 @@ onMounted(() => {
       <!-- Pagination -->
       <div class="kt-card-footer flex items-center justify-between">
         <span class="text-sm text-secondary-foreground">
-          Showing {{ filteredBrokers.length }} of {{ totalBrokers }} brokers
+          Showing {{ currentPage * pageSize + 1 }}-{{
+            Math.min((currentPage + 1) * pageSize, totalElements)
+          }} of {{ totalElements }} brokers
         </span>
         <div class="flex items-center gap-1">
-          <button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost" disabled>
+          <button
+            @click="prevPage"
+            class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost"
+            :disabled="isFirstPage"
+          >
             <i class="ki-filled ki-left"></i>
           </button>
-          <button class="kt-btn kt-btn-sm kt-btn-primary">1</button>
-          <button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost">
+          <template v-for="page in totalPages" :key="page">
+            <button
+              v-if="page <= 5 || page === totalPages || Math.abs(page - 1 - currentPage) <= 1"
+              @click="goToPage(page - 1)"
+              class="kt-btn kt-btn-sm"
+              :class="currentPage === page - 1 ? 'kt-btn-primary' : 'kt-btn-ghost'"
+            >
+              {{ page }}
+            </button>
+          </template>
+          <button
+            @click="nextPage"
+            class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost"
+            :disabled="isLastPage"
+          >
             <i class="ki-filled ki-right"></i>
           </button>
         </div>
@@ -314,8 +312,8 @@ onMounted(() => {
           <div class="text-sm">
             <p class="font-medium text-blue-700 dark:text-blue-300 mb-1">Broker Management</p>
             <ul class="text-blue-600 dark:text-blue-400 space-y-1">
-              <li><strong>Assign Customers:</strong> Click the user icon to assign customers to a broker</li>
-              <li><strong>Portfolio Value:</strong> Total value of all customers managed by the broker</li>
+              <li><strong>Brokers:</strong> Users with BROKER role who can manage customer accounts</li>
+              <li><strong>View Customers:</strong> Click the users icon to see customers assigned to a broker</li>
               <li><strong>Active Status:</strong> Only active brokers can receive new customer assignments</li>
             </ul>
           </div>

@@ -17,10 +17,10 @@ public class CustomerAssetDTO {
 
     private UUID id;
     private UUID customerId;
-    private String assetSymbol;
+    private String assetName;
+    private BigDecimal size;
     private BigDecimal usableSize;
     private BigDecimal blockedSize;
-    private BigDecimal totalSize;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

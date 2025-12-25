@@ -18,9 +18,9 @@ public class DepositWithdrawRequest {
     @NotNull(message = "Customer ID is required")
     private UUID customerId;
 
-    @NotBlank(message = "Asset symbol is required")
-    @Size(max = 20, message = "Asset symbol must not exceed 20 characters")
-    private String assetSymbol;
+    @NotBlank(message = "Asset name is required")
+    @Size(max = 20, message = "Asset name must not exceed 20 characters")
+    private String assetName;
 
     @NotNull(message = "Amount is required")
     @DecimalMin(value = "0.0001", message = "Amount must be greater than 0")

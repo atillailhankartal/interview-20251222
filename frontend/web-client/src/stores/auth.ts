@@ -20,6 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
   const token = computed(() => keycloak.value?.token)
   const fullName = computed(() => user.value ? `${user.value.firstName} ${user.value.lastName}` : '')
   const email = computed(() => user.value?.email || '')
+  const roles = computed(() => user.value?.roles || [])
 
   function setKeycloak(kc: Keycloak) {
     keycloak.value = kc
@@ -101,6 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
     token,
     fullName,
     email,
+    roles,
     setKeycloak,
     setInitialized,
     hasRole,

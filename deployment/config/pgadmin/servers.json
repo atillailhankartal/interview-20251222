@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Brokage PostgreSQL",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "brokage",
+      "Username": "brokage",
+      "PassFile": "/pgadmin4/pgpass",
+      "SSLMode": "prefer",
+      "Comment": "Brokage trading platform database"
+    }
+  }
+}

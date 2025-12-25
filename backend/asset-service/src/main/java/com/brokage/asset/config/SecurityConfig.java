@@ -47,6 +47,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/market/**").permitAll()
                 // Actuator endpoints
                 .requestMatchers("/actuator/**").permitAll()
+                // Swagger UI - public for API documentation
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                 // All other endpoints require authentication
                 .anyRequest().authenticated()
             )
@@ -109,6 +111,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(
             "http://localhost:3000",
+            "http://localhost:4000",
+            "http://localhost:4500",
             "http://localhost:5173",
             "http://localhost",
             "http://app.brokage.local"

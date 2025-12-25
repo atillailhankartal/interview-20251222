@@ -20,7 +20,7 @@ public class MatchingQueueDTO {
     private UUID id;
     private UUID orderId;
     private UUID customerId;
-    private String assetSymbol;
+    private String assetName;
     private OrderSide orderSide;
     private BigDecimal price;
     private BigDecimal remainingSize;

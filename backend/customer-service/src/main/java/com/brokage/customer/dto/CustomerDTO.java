@@ -1,5 +1,6 @@
 package com.brokage.customer.dto;
 
+import com.brokage.common.enums.CustomerRole;
 import com.brokage.common.enums.CustomerStatus;
 import com.brokage.common.enums.CustomerTier;
 import lombok.AllArgsConstructor;
@@ -26,6 +27,8 @@ public class CustomerDTO {
     private LocalDate birthDate;
     private CustomerTier tier;
     private CustomerStatus status;
+    private CustomerRole role;
+    private boolean orderable;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

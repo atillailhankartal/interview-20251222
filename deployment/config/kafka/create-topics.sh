@@ -34,6 +34,13 @@ kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
   --replication-factor 1 \
   --config retention.ms=2592000000
 
+# Order status updates - for saga status synchronization
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic order-status-updates \
+  --partitions 3 \
+  --replication-factor 1 \
+  --config retention.ms=604800000
+
 # Dead letter queue
 kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
   --topic dlq-events \

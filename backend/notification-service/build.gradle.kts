@@ -22,6 +22,9 @@ dependencies {
     // WebSocket (for real-time notifications)
     implementation("org.springframework.boot:spring-boot-starter-websocket")
 
+    // Email
+    implementation("org.springframework.boot:spring-boot-starter-mail")
+
     // Observability
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")

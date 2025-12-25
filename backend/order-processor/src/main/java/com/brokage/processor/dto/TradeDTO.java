@@ -21,7 +21,7 @@ public class TradeDTO {
     private UUID sellOrderId;
     private UUID buyerCustomerId;
     private UUID sellerCustomerId;
-    private String assetSymbol;
+    private String assetName;
     private BigDecimal quantity;
     private BigDecimal price;
     private BigDecimal totalValue;

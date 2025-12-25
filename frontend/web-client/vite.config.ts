@@ -11,10 +11,54 @@ export default defineConfig({
     }
   },
   server: {
-    port: 3000,
+    port: 4000,
     proxy: {
-      '/api': {
-        target: 'http://localhost:8080',
+      // Order Service
+      '/api/orders': {
+        target: 'http://localhost:7081',
+        changeOrigin: true
+      },
+      // Asset Service
+      '/api/assets': {
+        target: 'http://localhost:7082',
+        changeOrigin: true
+      },
+      '/api/stocks': {
+        target: 'http://localhost:7082',
+        changeOrigin: true
+      },
+      '/api/market': {
+        target: 'http://localhost:7082',
+        changeOrigin: true
+      },
+      // Customer Service
+      '/api/customers': {
+        target: 'http://localhost:7083',
+        changeOrigin: true
+      },
+      '/api/brokers': {
+        target: 'http://localhost:7083',
+        changeOrigin: true
+      },
+      // Web API (BFF)
+      '/api/dashboard': {
+        target: 'http://localhost:7087',
+        changeOrigin: true
+      },
+      '/api/analytics': {
+        target: 'http://localhost:7087',
+        changeOrigin: true
+      },
+      '/api/reports': {
+        target: 'http://localhost:7087',
+        changeOrigin: true
+      },
+      '/api/audit': {
+        target: 'http://localhost:7087',
+        changeOrigin: true
+      },
+      '/api/stream': {
+        target: 'http://localhost:7087',
         changeOrigin: true
       }
     }

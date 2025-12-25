@@ -12,7 +12,7 @@ import java.util.UUID;
 @Table(name = "trades", indexes = {
         @Index(name = "idx_trade_buy_order", columnList = "buy_order_id"),
         @Index(name = "idx_trade_sell_order", columnList = "sell_order_id"),
-        @Index(name = "idx_trade_asset", columnList = "asset_symbol"),
+        @Index(name = "idx_trade_asset", columnList = "asset_name"),
         @Index(name = "idx_trade_created", columnList = "created_at")
 })
 @Getter
@@ -34,8 +34,8 @@ public class Trade extends BaseEntity {
     @Column(name = "seller_customer_id", nullable = false)
     private UUID sellerCustomerId;
 
-    @Column(name = "asset_symbol", nullable = false, length = 20)
-    private String assetSymbol;
+    @Column(name = "asset_name", nullable = false, length = 20)
+    private String assetName;
 
     @Column(name = "quantity", nullable = false, precision = 19, scale = 4)
     private BigDecimal quantity;
@@ -52,14 +52,14 @@ public class Trade extends BaseEntity {
 
     public static Trade create(UUID buyOrderId, UUID sellOrderId,
                                UUID buyerCustomerId, UUID sellerCustomerId,
-                               String assetSymbol, BigDecimal quantity,
+                               String assetName, BigDecimal quantity,
                                BigDecimal price, OrderSide takerSide) {
         return Trade.builder()
                 .buyOrderId(buyOrderId)
                 .sellOrderId(sellOrderId)
                 .buyerCustomerId(buyerCustomerId)
                 .sellerCustomerId(sellerCustomerId)
-                .assetSymbol(assetSymbol)
+                .assetName(assetName)
                 .quantity(quantity)
                 .price(price)
                 .totalValue(quantity.multiply(price))

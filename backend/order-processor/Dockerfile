@@ -1,3 +1,17 @@
+# Build stage
+FROM gradle:8.5-jdk17 AS builder
+
+WORKDIR /build
+
+# Copy gradle files and common module
+COPY build.gradle.kts settings.gradle.kts gradle.properties ./
+COPY common ./common
+COPY order-processor ./order-processor
+
+# Build the application
+RUN gradle :order-processor:bootJar -x test --no-daemon
+
+# Runtime stage
 FROM eclipse-temurin:17-jre
 
 LABEL maintainer="brokage-team"
@@ -7,7 +21,7 @@ WORKDIR /app
 
 RUN groupadd -r spring && useradd -r -g spring spring
 
-COPY build/libs/*-SNAPSHOT.jar app.jar
+COPY --from=builder /build/order-processor/build/libs/*-SNAPSHOT.jar app.jar
 
 RUN chown -R spring:spring /app
 

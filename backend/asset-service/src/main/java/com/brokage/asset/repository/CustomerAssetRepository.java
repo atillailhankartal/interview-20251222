@@ -21,24 +21,30 @@ public interface CustomerAssetRepository extends JpaRepository<CustomerAsset, UU
 
     Page<CustomerAsset> findByCustomerId(UUID customerId, Pageable pageable);
 
-    Optional<CustomerAsset> findByCustomerIdAndAssetSymbol(UUID customerId, String assetSymbol);
+    Optional<CustomerAsset> findByCustomerIdAndAssetName(UUID customerId, String assetName);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT ca FROM CustomerAsset ca WHERE ca.customerId = :customerId AND ca.assetSymbol = :assetSymbol")
-    Optional<CustomerAsset> findByCustomerIdAndAssetSymbolForUpdate(
+    @Query("SELECT ca FROM CustomerAsset ca WHERE ca.customerId = :customerId AND ca.assetName = :assetName")
+    Optional<CustomerAsset> findByCustomerIdAndAssetNameForUpdate(
             @Param("customerId") UUID customerId,
-            @Param("assetSymbol") String assetSymbol
+            @Param("assetName") String assetName
     );
 
     @Query("SELECT ca FROM CustomerAsset ca WHERE ca.customerId = :customerId AND ca.usableSize > 0")
     List<CustomerAsset> findNonZeroAssetsByCustomerId(@Param("customerId") UUID customerId);
 
-    boolean existsByCustomerIdAndAssetSymbol(UUID customerId, String assetSymbol);
+    boolean existsByCustomerIdAndAssetName(UUID customerId, String assetName);
 
     @Query("SELECT COALESCE(SUM(ca.usableSize), 0) FROM CustomerAsset ca " +
-           "WHERE ca.customerId = :customerId AND ca.assetSymbol = :assetSymbol")
+           "WHERE ca.customerId = :customerId AND ca.assetName = :assetName")
     java.math.BigDecimal getUsableBalance(
             @Param("customerId") UUID customerId,
-            @Param("assetSymbol") String assetSymbol
+            @Param("assetName") String assetName
     );
+
+    /**
+     * Get all TRY assets for admin dashboard (all customers' TRY balances)
+     */
+    @Query("SELECT ca FROM CustomerAsset ca WHERE ca.assetName = 'TRY'")
+    List<CustomerAsset> findAllTryAssets();
 }

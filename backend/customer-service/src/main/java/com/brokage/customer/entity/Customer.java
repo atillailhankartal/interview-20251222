@@ -1,6 +1,7 @@
 package com.brokage.customer.entity;
 
 import com.brokage.common.entity.BaseEntity;
+import com.brokage.common.enums.CustomerRole;
 import com.brokage.common.enums.CustomerStatus;
 import com.brokage.common.enums.CustomerTier;
 import jakarta.persistence.*;
@@ -50,10 +51,23 @@ public class Customer extends BaseEntity {
     @Builder.Default
     private CustomerStatus status = CustomerStatus.ACTIVE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    @Builder.Default
+    private CustomerRole role = CustomerRole.CUSTOMER;
+
     @Column(name = "keycloak_user_id", length = 36)
     private String keycloakUserId;
 
     public String getFullName() {
         return firstName + " " + lastName;
+    }
+
+    /**
+     * Check if this customer can have orders created for them.
+     * Only customers with CUSTOMER role can have orders.
+     */
+    public boolean isOrderable() {
+        return role == CustomerRole.CUSTOMER;
     }
 }

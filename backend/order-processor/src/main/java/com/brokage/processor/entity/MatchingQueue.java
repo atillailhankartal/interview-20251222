@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "matching_queue", indexes = {
-        @Index(name = "idx_queue_asset_side", columnList = "asset_symbol, order_side"),
+        @Index(name = "idx_queue_asset_side", columnList = "asset_name, order_side"),
         @Index(name = "idx_queue_priority", columnList = "tier_priority, price, queued_at"),
         @Index(name = "idx_queue_order", columnList = "order_id"),
         @Index(name = "idx_queue_status", columnList = "status")
@@ -29,8 +29,8 @@ public class MatchingQueue extends BaseEntity {
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
 
-    @Column(name = "asset_symbol", nullable = false, length = 20)
-    private String assetSymbol;
+    @Column(name = "asset_name", nullable = false, length = 20)
+    private String assetName;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "order_side", nullable = false)

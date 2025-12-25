@@ -12,9 +12,9 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/orders_db
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:5433/brokage
+    username: brokage
+    password: brokage123
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -34,14 +34,12 @@ spring:
     bootstrap-servers: localhost:9093
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
     consumer:
       group-id: order-processor
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
-    properties:
-      schema.registry.url: http://localhost:8082
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
   security:
     oauth2:
@@ -60,7 +58,7 @@ management:
       probability: 1.0
   otlp:
     tracing:
-      endpoint: http://localhost:4317
+      endpoint: http://localhost:4318
 
 logging:
   level:
@@ -74,9 +72,16 @@ spring:
       on-profile: docker
 
   datasource:
-    url: jdbc:postgresql://postgres:5432/orders_db
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://postgres:5432/brokage
+    username: brokage
+    password: brokage123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   data:
     redis:
@@ -85,8 +90,14 @@ spring:
 
   kafka:
     bootstrap-servers: kafka:29092
-    properties:
-      schema.registry.url: http://schema-registry:8081
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: order-processor
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
   security:
     oauth2:
@@ -96,9 +107,16 @@ spring:
           jwk-set-uri: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  tracing:
+    sampling:
+      probability: 1.0
   otlp:
     tracing:
-      endpoint: http://lgtm:4317
+      endpoint: http://lgtm:4318
 
 ---
 spring:

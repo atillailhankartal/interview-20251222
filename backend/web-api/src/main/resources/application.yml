@@ -1,0 +1,64 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: web-api
+
+  # Security - OAuth2 Resource Server
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/brokage}
+          jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8180/realms/brokage/protocol/openid-connect/certs}
+
+  # Redis for caching and SSE state
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  # Kafka for consuming events
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: web-api-group
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+# Service URLs for aggregation
+services:
+  order-service:
+    url: ${ORDER_SERVICE_URL:http://localhost:8081}
+  asset-service:
+    url: ${ASSET_SERVICE_URL:http://localhost:8082}
+  customer-service:
+    url: ${CUSTOMER_SERVICE_URL:http://localhost:8083}
+  notification-service:
+    url: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+  audit-service:
+    url: ${AUDIT_SERVICE_URL:http://localhost:8086}
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_ENDPOINT:http://localhost:4318}
+
+# Logging
+logging:
+  level:
+    com.brokage: DEBUG
+    org.springframework.web.reactive: DEBUG

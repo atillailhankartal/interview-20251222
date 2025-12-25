@@ -35,7 +35,7 @@ public class AssetService {
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
 
-    private static final String TRY_SYMBOL = "TRY";
+    private static final String TRY_ASSET = "TRY";
 
     @Transactional(readOnly = true)
     public List<CustomerAssetDTO> getCustomerAssets(UUID customerId) {
@@ -49,45 +49,45 @@ public class AssetService {
     @Transactional(readOnly = true)
     public PageResponse<CustomerAssetDTO> getCustomerAssetsPaged(UUID customerId, int page, int size) {
         log.debug("Getting paged assets for customer: {}, page: {}, size: {}", customerId, page, size);
-        Pageable pageable = PageRequest.of(page, size, Sort.by("assetSymbol").ascending());
+        Pageable pageable = PageRequest.of(page, size, Sort.by("assetName").ascending());
         Page<CustomerAsset> assetPage = customerAssetRepository.findByCustomerId(customerId, pageable);
         Page<CustomerAssetDTO> dtoPage = assetPage.map(this::toDTO);
         return PageResponse.of(dtoPage);
     }
 
     @Transactional(readOnly = true)
-    public CustomerAssetDTO getCustomerAsset(UUID customerId, String assetSymbol) {
-        log.debug("Getting asset {} for customer: {}", assetSymbol, customerId);
+    public CustomerAssetDTO getCustomerAsset(UUID customerId, String assetName) {
+        log.debug("Getting asset {} for customer: {}", assetName, customerId);
         CustomerAsset asset = customerAssetRepository
-                .findByCustomerIdAndAssetSymbol(customerId, assetSymbol)
+                .findByCustomerIdAndAssetName(customerId, assetName)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Asset not found for customer: " + customerId + ", symbol: " + assetSymbol));
+                        "Asset not found for customer: " + customerId + ", name: " + assetName));
         return toDTO(asset);
     }
 
     @Transactional
     public CustomerAssetDTO deposit(DepositWithdrawRequest request) {
         log.info("Processing deposit: customerId={}, asset={}, amount={}",
-                request.getCustomerId(), request.getAssetSymbol(), request.getAmount());
+                request.getCustomerId(), request.getAssetName(), request.getAmount());
 
         validatePositiveAmount(request.getAmount());
 
         CustomerAsset asset = customerAssetRepository
-                .findByCustomerIdAndAssetSymbolForUpdate(request.getCustomerId(), request.getAssetSymbol())
-                .orElseGet(() -> createNewAsset(request.getCustomerId(), request.getAssetSymbol()));
+                .findByCustomerIdAndAssetNameForUpdate(request.getCustomerId(), request.getAssetName())
+                .orElseGet(() -> createNewAsset(request.getCustomerId(), request.getAssetName()));
 
         asset.addUsableAmount(request.getAmount());
         CustomerAsset savedAsset = customerAssetRepository.save(asset);
 
         createOutboxEvent("DepositCompletedEvent", savedAsset.getId(), Map.of(
                 "customerId", request.getCustomerId().toString(),
-                "assetSymbol", request.getAssetSymbol(),
+                "assetName", request.getAssetName(),
                 "amount", request.getAmount().toString(),
                 "newBalance", savedAsset.getUsableSize().toString()
         ));
 
         log.info("Deposit completed: customerId={}, asset={}, newBalance={}",
-                request.getCustomerId(), request.getAssetSymbol(), savedAsset.getUsableSize());
+                request.getCustomerId(), request.getAssetName(), savedAsset.getUsableSize());
 
         return toDTO(savedAsset);
     }
@@ -95,12 +95,12 @@ public class AssetService {
     @Transactional
     public CustomerAssetDTO withdraw(DepositWithdrawRequest request) {
         log.info("Processing withdrawal: customerId={}, asset={}, amount={}",
-                request.getCustomerId(), request.getAssetSymbol(), request.getAmount());
+                request.getCustomerId(), request.getAssetName(), request.getAmount());
 
         validatePositiveAmount(request.getAmount());
 
         CustomerAsset asset = customerAssetRepository
-                .findByCustomerIdAndAssetSymbolForUpdate(request.getCustomerId(), request.getAssetSymbol())
+                .findByCustomerIdAndAssetNameForUpdate(request.getCustomerId(), request.getAssetName())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Asset not found for customer: " + request.getCustomerId()));
 
@@ -108,32 +108,34 @@ public class AssetService {
             throw new BusinessException("Insufficient usable balance. Available: " + asset.getUsableSize());
         }
 
+        // Withdraw reduces both size and usableSize
+        asset.setSize(asset.getSize().subtract(request.getAmount()));
         asset.setUsableSize(asset.getUsableSize().subtract(request.getAmount()));
         CustomerAsset savedAsset = customerAssetRepository.save(asset);
 
         createOutboxEvent("WithdrawalCompletedEvent", savedAsset.getId(), Map.of(
                 "customerId", request.getCustomerId().toString(),
-                "assetSymbol", request.getAssetSymbol(),
+                "assetName", request.getAssetName(),
                 "amount", request.getAmount().toString(),
                 "newBalance", savedAsset.getUsableSize().toString()
         ));
 
         log.info("Withdrawal completed: customerId={}, asset={}, newBalance={}",
-                request.getCustomerId(), request.getAssetSymbol(), savedAsset.getUsableSize());
+                request.getCustomerId(), request.getAssetName(), savedAsset.getUsableSize());
 
         return toDTO(savedAsset);
     }
 
     @Transactional
-    public CustomerAssetDTO reserveAsset(UUID customerId, String assetSymbol, BigDecimal amount) {
-        log.info("Reserving asset: customerId={}, asset={}, amount={}", customerId, assetSymbol, amount);
+    public CustomerAssetDTO reserveAsset(UUID customerId, String assetName, BigDecimal amount) {
+        log.info("Reserving asset: customerId={}, asset={}, amount={}", customerId, assetName, amount);
 
         validatePositiveAmount(amount);
 
         CustomerAsset asset = customerAssetRepository
-                .findByCustomerIdAndAssetSymbolForUpdate(customerId, assetSymbol)
+                .findByCustomerIdAndAssetNameForUpdate(customerId, assetName)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Asset not found for customer: " + customerId + ", symbol: " + assetSymbol));
+                        "Asset not found for customer: " + customerId + ", name: " + assetName));
 
         if (!asset.hasAvailableBalance(amount)) {
             throw new BusinessException("Insufficient usable balance for reservation. Available: " + asset.getUsableSize());
@@ -144,40 +146,40 @@ public class AssetService {
 
         createOutboxEvent("AssetReservedEvent", savedAsset.getId(), Map.of(
                 "customerId", customerId.toString(),
-                "assetSymbol", assetSymbol,
+                "assetName", assetName,
                 "reservedAmount", amount.toString(),
                 "usableBalance", savedAsset.getUsableSize().toString(),
                 "blockedBalance", savedAsset.getBlockedSize().toString()
         ));
 
-        log.info("Asset reserved: customerId={}, asset={}, blocked={}", customerId, assetSymbol, amount);
+        log.info("Asset reserved: customerId={}, asset={}, blocked={}", customerId, assetName, amount);
 
         return toDTO(savedAsset);
     }
 
     @Transactional
-    public CustomerAssetDTO releaseReservation(UUID customerId, String assetSymbol, BigDecimal amount) {
-        log.info("Releasing reservation: customerId={}, asset={}, amount={}", customerId, assetSymbol, amount);
+    public CustomerAssetDTO releaseReservation(UUID customerId, String assetName, BigDecimal amount) {
+        log.info("Releasing reservation: customerId={}, asset={}, amount={}", customerId, assetName, amount);
 
         validatePositiveAmount(amount);
 
         CustomerAsset asset = customerAssetRepository
-                .findByCustomerIdAndAssetSymbolForUpdate(customerId, assetSymbol)
+                .findByCustomerIdAndAssetNameForUpdate(customerId, assetName)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Asset not found for customer: " + customerId + ", symbol: " + assetSymbol));
+                        "Asset not found for customer: " + customerId + ", name: " + assetName));
 
         asset.releaseBlockedAmount(amount);
         CustomerAsset savedAsset = customerAssetRepository.save(asset);
 
         createOutboxEvent("AssetReleasedEvent", savedAsset.getId(), Map.of(
                 "customerId", customerId.toString(),
-                "assetSymbol", assetSymbol,
+                "assetName", assetName,
                 "releasedAmount", amount.toString(),
                 "usableBalance", savedAsset.getUsableSize().toString(),
                 "blockedBalance", savedAsset.getBlockedSize().toString()
         ));
 
-        log.info("Reservation released: customerId={}, asset={}, released={}", customerId, assetSymbol, amount);
+        log.info("Reservation released: customerId={}, asset={}, released={}", customerId, assetName, amount);
 
         return toDTO(savedAsset);
     }
@@ -188,17 +190,17 @@ public class AssetService {
         log.info("Settling transaction: customerId={}, {} {} -> {} {}",
                 customerId, fromAmount, fromAsset, toAmount, toAsset);
 
-        // Deduct from blocked amount
+        // Deduct from blocked amount (reduces size)
         CustomerAsset sourceAsset = customerAssetRepository
-                .findByCustomerIdAndAssetSymbolForUpdate(customerId, fromAsset)
+                .findByCustomerIdAndAssetNameForUpdate(customerId, fromAsset)
                 .orElseThrow(() -> new ResourceNotFoundException("Source asset not found"));
 
         sourceAsset.deductBlockedAmount(fromAmount);
         customerAssetRepository.save(sourceAsset);
 
-        // Add to destination asset
+        // Add to destination asset (increases both size and usableSize)
         CustomerAsset destAsset = customerAssetRepository
-                .findByCustomerIdAndAssetSymbolForUpdate(customerId, toAsset)
+                .findByCustomerIdAndAssetNameForUpdate(customerId, toAsset)
                 .orElseGet(() -> createNewAsset(customerId, toAsset));
 
         destAsset.addUsableAmount(toAmount);
@@ -217,16 +219,28 @@ public class AssetService {
     }
 
     @Transactional(readOnly = true)
-    public BigDecimal getUsableBalance(UUID customerId, String assetSymbol) {
-        return customerAssetRepository.getUsableBalance(customerId, assetSymbol);
+    public BigDecimal getUsableBalance(UUID customerId, String assetName) {
+        return customerAssetRepository.getUsableBalance(customerId, assetName);
     }
 
-    private CustomerAsset createNewAsset(UUID customerId, String assetSymbol) {
+    /**
+     * Get all TRY balances for admin dashboard - returns map of customerId to balance info
+     */
+    @Transactional(readOnly = true)
+    public List<CustomerAssetDTO> getAllTryBalances() {
+        log.debug("Getting all TRY balances for admin dashboard");
+        return customerAssetRepository.findAllTryAssets()
+                .stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    private CustomerAsset createNewAsset(UUID customerId, String assetName) {
         return CustomerAsset.builder()
                 .customerId(customerId)
-                .assetSymbol(assetSymbol)
+                .assetName(assetName)
+                .size(BigDecimal.ZERO)
                 .usableSize(BigDecimal.ZERO)
-                .blockedSize(BigDecimal.ZERO)
                 .build();
     }
 
@@ -258,10 +272,10 @@ public class AssetService {
         return CustomerAssetDTO.builder()
                 .id(asset.getId())
                 .customerId(asset.getCustomerId())
-                .assetSymbol(asset.getAssetSymbol())
+                .assetName(asset.getAssetName())
+                .size(asset.getSize())
                 .usableSize(asset.getUsableSize())
                 .blockedSize(asset.getBlockedSize())
-                .totalSize(asset.getTotalSize())
                 .createdAt(asset.getCreatedAt())
                 .updatedAt(asset.getUpdatedAt())
                 .build();

@@ -20,7 +20,7 @@ public class OrderDTO {
 
     private UUID id;
     private UUID customerId;
-    private String assetSymbol;
+    private String assetName;
     private OrderSide orderSide;
     private OrderType orderType;
     private BigDecimal size;

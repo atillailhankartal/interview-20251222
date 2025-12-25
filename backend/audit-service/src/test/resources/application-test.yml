@@ -1,4 +1,7 @@
 spring:
+  main:
+    allow-bean-definition-overriding: true
+
   data:
     mongodb:
       uri: mongodb://localhost:27017/test_audit_db

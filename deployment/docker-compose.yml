@@ -7,11 +7,14 @@
 #   Redis:      6380
 #   Kafka:      9093
 #   Zookeeper:  2182
-#   Schema Reg: 8082
+#   Schema Reg: 8091
 #   Keycloak:   8180
 #   Grafana:    3001
-#   Loki:       3110
-#   Traefik:    80, 8090 (dashboard)
+#   Traefik:    4500 (API Gateway), 8090 (dashboard)
+#   Frontend:   4000
+#   Mailpit:    8026 (Web UI), 1026 (SMTP)
+#   pgAdmin:    5050 (PostgreSQL Web UI)
+#   MongoExp:   8027 (MongoDB Web UI)
 # =============================================================================
 
 services:
@@ -19,14 +22,14 @@ services:
   # Infrastructure Layer
   # ---------------------------------------------------------------------------
 
-  # PostgreSQL - Relational Database
+  # PostgreSQL - Relational Database (Single DB for ACID transactions)
   postgres:
     image: postgres:16-alpine
     container_name: brokage-postgres
     environment:
       POSTGRES_USER: brokage
       POSTGRES_PASSWORD: brokage123
-      POSTGRES_MULTIPLE_DATABASES: brokage_orders,brokage_assets,brokage_customers,brokage_processor
+      POSTGRES_DB: brokage
     ports:
       - "5433:5432"
     volumes:
@@ -57,6 +60,59 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - brokage-network
+
+  # ---------------------------------------------------------------------------
+  # Database Management Tools (for reviewers)
+  # ---------------------------------------------------------------------------
+
+  # pgAdmin - PostgreSQL Web UI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: brokage-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@brokage.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./config/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./config/pgadmin/pgpass:/pgadmin4/pgpass:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - brokage-network
+
+  # Mongo Express - MongoDB Web UI
+  mongo-express:
+    image: mongo-express:latest
+    container_name: brokage-mongo-express
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: brokage
+      ME_CONFIG_MONGODB_ADMINPASSWORD: brokage123
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin123
+    ports:
+      - "8027:8081"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - brokage-network
 
@@ -265,6 +321,28 @@ services:
       - brokage-network
 
   # ---------------------------------------------------------------------------
+  # Communication Layer - Email & SMS Testing
+  # ---------------------------------------------------------------------------
+
+  # Mailpit - Email Testing (catches all SMTP emails)
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: brokage-mailpit
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - "8026:8025"   # Web UI (custom port to avoid conflicts)
+      - "1026:1025"   # SMTP Server (custom port to avoid conflicts)
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8025/api/v1/info"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - brokage-network
+
+  # ---------------------------------------------------------------------------
   # Gateway Layer
   # ---------------------------------------------------------------------------
 
@@ -278,8 +356,7 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.network=brokage-network"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.address=:4500"
       - "--log.level=INFO"
       - "--accesslog=true"
       - "--metrics.prometheus=true"
@@ -287,9 +364,8 @@ services:
       - "--tracing.otlp.grpc.endpoint=lgtm:4317"
       - "--tracing.otlp.grpc.insecure=true"
     ports:
-      - "80:80"
-      - "443:443"
-      - "8090:8080"   # Traefik Dashboard (custom port)
+      - "4500:4500"   # API Gateway
+      - "8090:8080"   # Traefik Dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -321,14 +397,14 @@ services:
     container_name: brokage-order-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage_orders
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage
       SPRING_DATASOURCE_USERNAME: brokage
       SPRING_DATASOURCE_PASSWORD: brokage123
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PASSWORD: brokage123
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
       LOKI_URL: http://lgtm:3100
     ports:
@@ -363,12 +439,12 @@ services:
     container_name: brokage-asset-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage_assets
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage
       SPRING_DATASOURCE_USERNAME: brokage
       SPRING_DATASOURCE_PASSWORD: brokage123
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
       LOKI_URL: http://lgtm:3100
     ports:
@@ -401,14 +477,14 @@ services:
     container_name: brokage-customer-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage_customers
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage
       SPRING_DATASOURCE_USERNAME: brokage
       SPRING_DATASOURCE_PASSWORD: brokage123
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PASSWORD: brokage123
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
       LOKI_URL: http://lgtm:3100
     ports:
@@ -438,19 +514,19 @@ services:
   # Order Processor - Order matching & processing
   order-processor:
     build:
-      context: ../backend/order-processor
-      dockerfile: Dockerfile
+      context: ../backend
+      dockerfile: order-processor/Dockerfile
     container_name: brokage-order-processor
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage_processor
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/brokage
       SPRING_DATASOURCE_USERNAME: brokage
       SPRING_DATASOURCE_PASSWORD: brokage123
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PASSWORD: brokage123
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
       LOKI_URL: http://lgtm:3100
     ports:
@@ -483,15 +559,27 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
       LOKI_URL: http://lgtm:3100
+      # Email Configuration (Mailpit - internal port is 1025)
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: 1025
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: false
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: false
+      NOTIFICATION_EMAIL_FROM: noreply@brokage.com
+      NOTIFICATION_EMAIL_ENABLED: true
+      # SMS Configuration (logged only for demo)
+      NOTIFICATION_SMS_ENABLED: true
+      NOTIFICATION_SMS_PROVIDER: LOG
     ports:
       - "7085:8085"
     depends_on:
       kafka:
         condition: service_healthy
       keycloak:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8085/actuator/health"]
@@ -517,7 +605,7 @@ services:
       SPRING_DATA_MONGODB_URI: mongodb://brokage:brokage123@mongodb:27017/brokage_audit?authSource=admin
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/brokage
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
       LOKI_URL: http://lgtm:3100
     ports:
@@ -542,6 +630,53 @@ services:
       - "traefik.http.routers.audit-service.rule=PathPrefix(`/api/audit`)"
       - "traefik.http.services.audit-service.loadbalancer.server.port=8086"
 
+  # Web API - Frontend aggregation service (Dashboard, Reports, Analytics, SSE)
+  web-api:
+    build:
+      context: ../backend
+      dockerfile: web-api/Dockerfile
+    container_name: brokage-web-api
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: brokage123
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
+      ORDER_SERVICE_URL: http://order-service:8081
+      ASSET_SERVICE_URL: http://asset-service:8082
+      CUSTOMER_SERVICE_URL: http://customer-service:8083
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      AUDIT_SERVICE_URL: http://audit-service:8086
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      LOKI_URL: http://lgtm:3100
+    ports:
+      - "7087:8087"
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      asset-service:
+        condition: service_healthy
+      customer-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8087/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - brokage-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web-api.rule=PathPrefix(`/api/dashboard`) || PathPrefix(`/api/stream`) || PathPrefix(`/api/analytics`) || PathPrefix(`/api/reports`)"
+      - "traefik.http.services.web-api.loadbalancer.server.port=8087"
+
   # ---------------------------------------------------------------------------
   # Frontend Layer
   # ---------------------------------------------------------------------------
@@ -558,7 +693,7 @@ services:
         VITE_KEYCLOAK_CLIENT_ID: brokage-web
     container_name: brokage-web-client
     ports:
-      - "3000:80"
+      - "4000:80"
     depends_on:
       keycloak:
         condition: service_healthy
@@ -591,6 +726,8 @@ volumes:
     name: brokage-postgres-data
   mongodb_data:
     name: brokage-mongodb-data
+  pgadmin_data:
+    name: brokage-pgadmin-data
   redis_data:
     name: brokage-redis-data
   zookeeper_data:

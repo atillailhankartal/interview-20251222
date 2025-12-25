@@ -4,9 +4,11 @@ import com.brokage.common.dto.ApiResponse;
 import com.brokage.common.dto.PageResponse;
 import com.brokage.common.enums.OrderSide;
 import com.brokage.common.enums.OrderStatus;
+import com.brokage.order.client.CustomerClient;
 import com.brokage.order.dto.CreateOrderRequest;
 import com.brokage.order.dto.OrderDTO;
 import com.brokage.order.dto.OrderFilterRequest;
+import com.brokage.order.dto.OrderStatsDTO;
 import com.brokage.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,10 +32,12 @@ import java.util.UUID;
 public class OrderController {
 
     private final OrderService orderService;
+    private final CustomerClient customerClient;
 
     /**
      * Create a new order
-     * - ADMIN: Can create orders for any customer
+     * - ADMIN: Can create orders for any customer (with CUSTOMER role)
+     * - BROKER: Can only create orders for their own customers
      * - CUSTOMER: Can only create orders for themselves
      */
     @PostMapping
@@ -42,14 +46,29 @@ public class OrderController {
             @Valid @RequestBody CreateOrderRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
-        // For CUSTOMER role, enforce creating order for self only
-        if (isCustomer(jwt) && !isAdmin(jwt)) {
+        UUID requestedCustomerId = request.getCustomerId();
+
+        // CUSTOMER role: Can only create orders for themselves
+        if (isCustomer(jwt) && !isAdmin(jwt) && !isBroker(jwt)) {
             UUID tokenCustomerId = getCustomerId(jwt);
-            if (!tokenCustomerId.equals(request.getCustomerId())) {
+            if (!tokenCustomerId.equals(requestedCustomerId)) {
+                log.warn("Customer {} tried to create order for customer {}", tokenCustomerId, requestedCustomerId);
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(ApiResponse.error("You can only create orders for yourself"));
             }
         }
+
+        // BROKER role: Can only create orders for their own customers
+        if (isBroker(jwt) && !isAdmin(jwt)) {
+            UUID brokerId = getCustomerId(jwt);
+            if (!customerClient.isBrokerOfCustomer(brokerId, requestedCustomerId)) {
+                log.warn("Broker {} tried to create order for non-assigned customer {}", brokerId, requestedCustomerId);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("You can only create orders for your assigned customers"));
+            }
+        }
+
+        // ADMIN: No restrictions (but target must be orderable - checked in service)
 
         OrderDTO order = orderService.createOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -58,7 +77,8 @@ public class OrderController {
 
     /**
      * Get order by ID
-     * - ADMIN/BROKER: Can view any order
+     * - ADMIN: Can view any order
+     * - BROKER: Can only view their customers' orders
      * - CUSTOMER: Can only view their own orders
      */
     @GetMapping("/{orderId}")
@@ -67,12 +87,30 @@ public class OrderController {
             @PathVariable UUID orderId,
             @AuthenticationPrincipal Jwt jwt) {
 
-        OrderDTO order;
-        if (isAdmin(jwt) || isBroker(jwt)) {
-            order = orderService.getOrderById(orderId);
-        } else {
-            UUID customerId = getCustomerId(jwt);
-            order = orderService.getOrderByIdForCustomer(orderId, customerId);
+        OrderDTO order = orderService.getOrderById(orderId);
+
+        // ADMIN: Can view any order
+        if (isAdmin(jwt)) {
+            return ResponseEntity.ok(ApiResponse.success(order));
+        }
+
+        // BROKER: Can only view their customers' orders
+        if (isBroker(jwt)) {
+            UUID brokerId = getCustomerId(jwt);
+            if (!customerClient.isBrokerOfCustomer(brokerId, order.getCustomerId())) {
+                log.warn("Broker {} tried to view order {} of non-assigned customer {}",
+                        brokerId, orderId, order.getCustomerId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("You can only view orders of your assigned customers"));
+            }
+            return ResponseEntity.ok(ApiResponse.success(order));
+        }
+
+        // CUSTOMER: Can only view their own orders
+        UUID customerId = getCustomerId(jwt);
+        if (!order.getCustomerId().equals(customerId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error("You can only view your own orders"));
         }
 
         return ResponseEntity.ok(ApiResponse.success(order));
@@ -80,14 +118,15 @@ public class OrderController {
 
     /**
      * List orders with filters
-     * - ADMIN/BROKER: Can list all orders (with optional customerId filter)
+     * - ADMIN: Can list all orders
+     * - BROKER: Can only list their customers' orders
      * - CUSTOMER: Can only list their own orders
      */
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'BROKER', 'CUSTOMER')")
     public ResponseEntity<ApiResponse<PageResponse<OrderDTO>>> listOrders(
             @RequestParam(required = false) UUID customerId,
-            @RequestParam(required = false) String assetSymbol,
+            @RequestParam(required = false) String assetName,
             @RequestParam(required = false) OrderSide orderSide,
             @RequestParam(required = false) OrderStatus status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
@@ -100,7 +139,7 @@ public class OrderController {
 
         OrderFilterRequest filter = OrderFilterRequest.builder()
                 .customerId(customerId)
-                .assetSymbol(assetSymbol)
+                .assetName(assetName)
                 .orderSide(orderSide)
                 .status(status)
                 .startDate(startDate)
@@ -112,9 +151,28 @@ public class OrderController {
                 .build();
 
         Page<OrderDTO> orders;
-        if (isAdmin(jwt) || isBroker(jwt)) {
+
+        // ADMIN: Can list all orders
+        if (isAdmin(jwt)) {
             orders = orderService.listOrders(filter);
-        } else {
+        }
+        // BROKER: Can list orders for their customers only
+        else if (isBroker(jwt)) {
+            UUID brokerId = getCustomerId(jwt);
+            // If customerId filter is provided, verify it belongs to the broker
+            if (customerId != null) {
+                if (!customerClient.isBrokerOfCustomer(brokerId, customerId)) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(ApiResponse.error("You can only view orders of your assigned customers"));
+                }
+                orders = orderService.listOrdersForCustomer(customerId, filter);
+            } else {
+                // List orders for all broker's customers
+                orders = orderService.listOrdersForBroker(brokerId, filter);
+            }
+        }
+        // CUSTOMER: Can only list their own orders
+        else {
             UUID tokenCustomerId = getCustomerId(jwt);
             orders = orderService.listOrdersForCustomer(tokenCustomerId, filter);
         }
@@ -125,7 +183,8 @@ public class OrderController {
 
     /**
      * Cancel an order
-     * - ADMIN/BROKER: Can cancel any PENDING order
+     * - ADMIN: Can cancel any PENDING order
+     * - BROKER: Can cancel their customers' PENDING orders
      * - CUSTOMER: Can only cancel their own PENDING orders
      */
     @DeleteMapping("/{orderId}")
@@ -134,26 +193,72 @@ public class OrderController {
             @PathVariable UUID orderId,
             @AuthenticationPrincipal Jwt jwt) {
 
-        OrderDTO order;
-        if (isAdmin(jwt) || isBroker(jwt)) {
-            order = orderService.cancelOrder(orderId);
-        } else {
-            UUID customerId = getCustomerId(jwt);
-            order = orderService.cancelOrderForCustomer(orderId, customerId);
+        // First get the order to check ownership
+        OrderDTO existingOrder = orderService.getOrderById(orderId);
+
+        // ADMIN: Can cancel any order
+        if (isAdmin(jwt)) {
+            OrderDTO order = orderService.cancelOrder(orderId);
+            return ResponseEntity.ok(ApiResponse.success(order, "Order cancelled successfully"));
         }
 
+        // BROKER: Can cancel their customers' orders
+        if (isBroker(jwt)) {
+            UUID brokerId = getCustomerId(jwt);
+            if (!customerClient.isBrokerOfCustomer(brokerId, existingOrder.getCustomerId())) {
+                log.warn("Broker {} tried to cancel order {} of non-assigned customer {}",
+                        brokerId, orderId, existingOrder.getCustomerId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("You can only cancel orders of your assigned customers"));
+            }
+            OrderDTO order = orderService.cancelOrder(orderId);
+            return ResponseEntity.ok(ApiResponse.success(order, "Order cancelled successfully"));
+        }
+
+        // CUSTOMER: Can only cancel their own orders
+        UUID customerId = getCustomerId(jwt);
+        OrderDTO order = orderService.cancelOrderForCustomer(orderId, customerId);
         return ResponseEntity.ok(ApiResponse.success(order, "Order cancelled successfully"));
     }
 
     /**
-     * Match an order (ADMIN only)
+     * Match an order (ADMIN and BROKER for their customers)
      * Simulates order execution by matching buy/sell orders
+     * - ADMIN: Can match any order
+     * - BROKER: Can match their customers' orders
      */
     @PostMapping("/{orderId}/match")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<OrderDTO>> matchOrder(@PathVariable UUID orderId) {
+    @PreAuthorize("hasAnyRole('ADMIN', 'BROKER')")
+    public ResponseEntity<ApiResponse<OrderDTO>> matchOrder(
+            @PathVariable UUID orderId,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        // First get the order to check ownership (for BROKER)
+        OrderDTO existingOrder = orderService.getOrderById(orderId);
+
+        // BROKER: Can only match their customers' orders
+        if (isBroker(jwt) && !isAdmin(jwt)) {
+            UUID brokerId = getCustomerId(jwt);
+            if (!customerClient.isBrokerOfCustomer(brokerId, existingOrder.getCustomerId())) {
+                log.warn("Broker {} tried to match order {} of non-assigned customer {}",
+                        brokerId, orderId, existingOrder.getCustomerId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("You can only match orders of your assigned customers"));
+            }
+        }
+
         OrderDTO order = orderService.matchOrder(orderId);
         return ResponseEntity.ok(ApiResponse.success(order, "Order matched successfully"));
+    }
+
+    /**
+     * Get order statistics for dashboard (ADMIN only now)
+     */
+    @GetMapping("/stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<OrderStatsDTO>> getOrderStats() {
+        OrderStatsDTO stats = orderService.getOrderStats();
+        return ResponseEntity.ok(ApiResponse.success(stats));
     }
 
     // Helper methods for JWT claims extraction
@@ -185,10 +290,25 @@ public class OrderController {
         // First try to get from custom claim
         String customerIdClaim = jwt.getClaimAsString("customer_id");
         if (customerIdClaim != null) {
-            return UUID.fromString(customerIdClaim);
+            try {
+                return UUID.fromString(customerIdClaim);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid customer_id claim: {}", customerIdClaim);
+            }
         }
 
-        // Fall back to subject (user ID in Keycloak)
-        return UUID.fromString(jwt.getSubject());
+        // Try to lookup by email
+        String email = jwt.getClaimAsString("email");
+        if (email != null) {
+            UUID customerId = customerClient.getCustomerIdByEmail(email);
+            if (customerId != null) {
+                log.debug("Resolved customer ID {} from email {}", customerId, email);
+                return customerId;
+            }
+        }
+
+        // Fall back error - cannot determine customer ID
+        log.error("Cannot determine customer ID from JWT. Subject: {}, Email: {}", jwt.getSubject(), email);
+        throw new IllegalStateException("Cannot determine customer identity from token");
     }
 }

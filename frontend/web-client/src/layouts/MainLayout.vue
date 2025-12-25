@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useRoute } from 'vue-router'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
+import NotificationDropdown from '@/components/NotificationDropdown.vue'
 
 const authStore = useAuthStore()
 const { user } = storeToRefs(authStore)
@@ -32,8 +33,11 @@ const navItems = [
   { name: 'orders', icon: 'ki-handcart', to: '/orders', tooltip: 'Orders' },
   { name: 'portfolio', icon: 'ki-wallet', to: '/portfolio', tooltip: 'My Assets', roles: ['CUSTOMER'] },
   { name: 'market', icon: 'ki-graph-up', to: '/market', tooltip: 'Market' },
+  { name: 'analytics', icon: 'ki-chart-simple', to: '/analytics', tooltip: 'Analytics' },
+  { name: 'reports', icon: 'ki-document', to: '/reports', tooltip: 'Reports' },
   { name: 'customers', icon: 'ki-users', to: '/customers', tooltip: 'Customers', roles: ['ADMIN', 'BROKER'] },
   { name: 'brokers', icon: 'ki-briefcase', to: '/brokers', tooltip: 'Brokers', roles: ['ADMIN'] },
+  { name: 'audit', icon: 'ki-shield-tick', to: '/audit', tooltip: 'Audit Logs', roles: ['ADMIN'] },
 ]
 
 const filteredNavItems = computed(() => {
@@ -54,8 +58,11 @@ const pageTitle = computed(() => {
     'orders': 'Orders',
     'market': 'Market',
     'portfolio': 'My Assets',
+    'analytics': 'Analytics',
+    'reports': 'Reports',
     'customers': 'Customers',
     'brokers': 'Brokers',
+    'audit': 'Audit Logs',
   }
   return titles[route.name as string] || 'Dashboard'
 })
@@ -86,6 +93,11 @@ const userRole = computed(() => {
   if (authStore.hasRole('CUSTOMER')) return 'Customer'
   return 'User'
 })
+
+// Toggle dark mode
+function toggleDarkMode() {
+  document.documentElement.classList.toggle('dark')
+}
 </script>
 
 <template>
@@ -120,9 +132,7 @@ const userRole = computed(() => {
             </button>
 
             <!-- Notifications -->
-            <button class="kt-btn kt-btn-ghost kt-btn-icon size-9 rounded-full hover:[&_i]:text-primary">
-              <i class="ki-filled ki-notification-on text-lg"></i>
-            </button>
+            <NotificationDropdown />
 
             <!-- User Menu -->
             <div class="relative" ref="userMenuRef">
@@ -204,7 +214,7 @@ const userRole = computed(() => {
             </div>
             <!-- Theme Toggle -->
             <div class="flex items-center gap-2">
-              <button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost rounded-full" @click="document.documentElement.classList.toggle('dark')">
+              <button class="kt-btn kt-btn-sm kt-btn-icon kt-btn-ghost rounded-full" @click="toggleDarkMode">
                 <i class="ki-filled ki-moon text-lg dark:hidden"></i>
                 <i class="ki-filled ki-sun hidden dark:block text-lg"></i>
               </button>

@@ -1,5 +1,6 @@
 package com.brokage.asset.controller;
 
+import com.brokage.asset.client.CustomerClient;
 import com.brokage.asset.dto.CustomerAssetDTO;
 import com.brokage.asset.dto.DepositWithdrawRequest;
 import com.brokage.asset.service.AssetService;
@@ -24,6 +25,7 @@ import java.util.UUID;
 public class AssetController {
 
     private final AssetService assetService;
+    private final CustomerClient customerClient;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'BROKER', 'CUSTOMER')")
@@ -55,17 +57,17 @@ public class AssetController {
         return ResponseEntity.ok(ApiResponse.success(assets));
     }
 
-    @GetMapping("/{assetSymbol}")
+    @GetMapping("/{assetName}")
     @PreAuthorize("hasAnyRole('ADMIN', 'BROKER', 'CUSTOMER')")
     public ResponseEntity<ApiResponse<CustomerAssetDTO>> getAsset(
-            @PathVariable String assetSymbol,
+            @PathVariable String assetName,
             @RequestParam(required = false) UUID customerId,
             @AuthenticationPrincipal Jwt jwt) {
 
         UUID targetCustomerId = resolveCustomerId(customerId, jwt);
-        log.debug("Getting asset {} for customer: {}", assetSymbol, targetCustomerId);
+        log.debug("Getting asset {} for customer: {}", assetName, targetCustomerId);
 
-        CustomerAssetDTO asset = assetService.getCustomerAsset(targetCustomerId, assetSymbol);
+        CustomerAssetDTO asset = assetService.getCustomerAsset(targetCustomerId, assetName);
 
         return ResponseEntity.ok(ApiResponse.success(asset));
     }
@@ -77,7 +79,7 @@ public class AssetController {
             @AuthenticationPrincipal Jwt jwt) {
 
         log.info("Deposit request: customerId={}, asset={}, amount={}",
-                request.getCustomerId(), request.getAssetSymbol(), request.getAmount());
+                request.getCustomerId(), request.getAssetName(), request.getAmount());
 
         CustomerAssetDTO result = assetService.deposit(request);
 
@@ -91,17 +93,29 @@ public class AssetController {
             @AuthenticationPrincipal Jwt jwt) {
 
         log.info("Withdrawal request: customerId={}, asset={}, amount={}",
-                request.getCustomerId(), request.getAssetSymbol(), request.getAmount());
+                request.getCustomerId(), request.getAssetName(), request.getAmount());
 
         CustomerAssetDTO result = assetService.withdraw(request);
 
         return ResponseEntity.ok(ApiResponse.success(result, "Withdrawal completed successfully"));
     }
 
+    /**
+     * Get all customers' TRY balances (ADMIN only)
+     * Used for displaying balances in customer list
+     */
+    @GetMapping("/balances/try")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<CustomerAssetDTO>>> getAllTryBalances() {
+        log.debug("Getting all TRY balances for admin dashboard");
+        List<CustomerAssetDTO> balances = assetService.getAllTryBalances();
+        return ResponseEntity.ok(ApiResponse.success(balances));
+    }
+
     private UUID resolveCustomerId(UUID requestedCustomerId, Jwt jwt) {
         boolean isAdmin = hasRole(jwt, "ADMIN");
         boolean isBroker = hasRole(jwt, "BROKER");
-        UUID jwtCustomerId = UUID.fromString(jwt.getSubject());
+        UUID jwtCustomerId = getCustomerId(jwt);
 
         if (isAdmin || isBroker) {
             return requestedCustomerId != null ? requestedCustomerId : jwtCustomerId;
@@ -116,6 +130,32 @@ public class AssetController {
         }
 
         return jwtCustomerId;
+    }
+
+    private UUID getCustomerId(Jwt jwt) {
+        // First try to get from custom claim
+        String customerIdClaim = jwt.getClaimAsString("customer_id");
+        if (customerIdClaim != null) {
+            try {
+                return UUID.fromString(customerIdClaim);
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid customer_id claim: {}", customerIdClaim);
+            }
+        }
+
+        // Try to lookup by email
+        String email = jwt.getClaimAsString("email");
+        if (email != null) {
+            UUID customerId = customerClient.getCustomerIdByEmail(email);
+            if (customerId != null) {
+                log.debug("Resolved customer ID {} from email {}", customerId, email);
+                return customerId;
+            }
+        }
+
+        // Fall back error - cannot determine customer ID
+        log.error("Cannot determine customer ID from JWT. Subject: {}, Email: {}", jwt.getSubject(), email);
+        throw new IllegalStateException("Cannot determine customer identity from token");
     }
 
     private boolean hasRole(Jwt jwt, String role) {
