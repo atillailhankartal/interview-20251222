@@ -51,7 +51,12 @@ public class OrderController {
         // CUSTOMER role: Can only create orders for themselves
         if (isCustomer(jwt) && !isAdmin(jwt) && !isBroker(jwt)) {
             UUID tokenCustomerId = getCustomerId(jwt);
-            if (!tokenCustomerId.equals(requestedCustomerId)) {
+            // If customerId not provided, use the token customer ID
+            if (requestedCustomerId == null) {
+                request.setCustomerId(tokenCustomerId);
+                requestedCustomerId = tokenCustomerId;
+                log.debug("Customer ID resolved from JWT: {}", tokenCustomerId);
+            } else if (!tokenCustomerId.equals(requestedCustomerId)) {
                 log.warn("Customer {} tried to create order for customer {}", tokenCustomerId, requestedCustomerId);
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(ApiResponse.error("You can only create orders for yourself"));
@@ -61,6 +66,10 @@ public class OrderController {
         // BROKER role: Can only create orders for their own customers
         if (isBroker(jwt) && !isAdmin(jwt)) {
             UUID brokerId = getCustomerId(jwt);
+            if (requestedCustomerId == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("Customer ID is required for brokers"));
+            }
             if (!customerClient.isBrokerOfCustomer(brokerId, requestedCustomerId)) {
                 log.warn("Broker {} tried to create order for non-assigned customer {}", brokerId, requestedCustomerId);
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -68,7 +77,11 @@ public class OrderController {
             }
         }
 
-        // ADMIN: No restrictions (but target must be orderable - checked in service)
+        // ADMIN: customerId is required
+        if (isAdmin(jwt) && requestedCustomerId == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Customer ID is required for admins"));
+        }
 
         OrderDTO order = orderService.createOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED)

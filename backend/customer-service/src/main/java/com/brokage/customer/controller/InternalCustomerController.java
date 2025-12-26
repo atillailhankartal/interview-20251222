@@ -24,6 +24,16 @@ public class InternalCustomerController {
     private final CustomerService customerService;
 
     /**
+     * Get customer by email - used by Asset Service to resolve customer ID
+     */
+    @GetMapping("/by-email")
+    public ResponseEntity<ApiResponse<CustomerDTO>> getCustomerByEmail(@RequestParam String email) {
+        log.debug("Internal: Getting customer by email: {}", email);
+        CustomerDTO customer = customerService.getCustomerByEmail(email);
+        return ResponseEntity.ok(ApiResponse.success(customer));
+    }
+
+    /**
      * Get customer by ID - used by order-service to check if customer is orderable
      */
     @GetMapping("/{customerId}")
@@ -35,6 +45,20 @@ public class InternalCustomerController {
         } catch (Exception e) {
             log.warn("Customer not found: {}", customerId);
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * Check if customer exists
+     */
+    @GetMapping("/{customerId}/exists")
+    public ResponseEntity<ApiResponse<Boolean>> customerExists(@PathVariable UUID customerId) {
+        log.debug("Internal: Checking if customer exists: {}", customerId);
+        try {
+            customerService.getCustomerById(customerId);
+            return ResponseEntity.ok(ApiResponse.success(true));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.success(false));
         }
     }
 

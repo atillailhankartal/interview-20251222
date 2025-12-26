@@ -17,7 +17,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CreateOrderRequest {
 
-    @NotNull(message = "Customer ID is required")
+    // Optional for CUSTOMER role - will be resolved from JWT
+    // Required for ADMIN and BROKER roles
     private UUID customerId;
 
     @NotBlank(message = "Asset name is required")

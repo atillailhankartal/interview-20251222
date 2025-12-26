@@ -3,11 +3,12 @@ import { defineConfig, devices } from '@playwright/test'
 /**
  * Presentation Mode Configuration
  *
- * Optimized for demo/presentation with:
- * - Extra slow animations (1 second between actions)
- * - Full screen browser
- * - Video recording
+ * Optimized for live demo/presentation with:
+ * - Extra slow animations (800ms between actions)
+ * - Full screen browser (maximized)
+ * - Video recording enabled
  * - Screenshots on each step
+ * - Extended timeouts for demo visibility
  */
 export default defineConfig({
   testDir: './tests',
@@ -19,9 +20,9 @@ export default defineConfig({
     ['list'],
     ['html', { open: 'never', outputFolder: 'presentation-report' }]
   ],
-  timeout: 120000,
+  timeout: 180000, // 3 minutes per test
   expect: {
-    timeout: 15000,
+    timeout: 20000,
   },
   use: {
     baseURL: 'http://localhost:4000',
@@ -29,17 +30,22 @@ export default defineConfig({
     screenshot: 'on',
     video: 'on',
     actionTimeout: 30000,
-    navigationTimeout: 30000,
+    navigationTimeout: 60000,
   },
   projects: [
     {
       name: 'presentation',
-      testMatch: 'pdf-scenarios.spec.ts',
+      testMatch: 'presentation.spec.ts',
       use: {
         viewport: null,
         launchOptions: {
-          slowMo: 1000,
-          args: ['--start-maximized'],
+          slowMo: 800,
+          args: [
+            '--start-maximized',
+            '--start-fullscreen',
+            '--window-size=1920,1080',
+            '--window-position=0,0',
+          ],
         },
       },
     },

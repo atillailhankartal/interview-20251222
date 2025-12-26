@@ -134,10 +134,10 @@ const isBalanceSufficient = computed(() => {
 
 // Actions
 const openCreateModal = async () => {
-  const customerId = canCreateForOthers.value ? '' : (authStore.user?.id || '')
+  // For customers, don't pass customerId - backend resolves from JWT
+  // For admins/brokers, they select customer later
   orderForm.value = {
-    // Admin and Broker select customer, Customer uses their own ID
-    customerId,
+    customerId: '',
     assetName: '',
     orderSide: 'BUY',
     size: 1,
@@ -148,9 +148,9 @@ const openCreateModal = async () => {
   formError.value = null
   showCreateModal.value = true
 
-  // If customer is creating for themselves, fetch their assets
-  if (!canCreateForOthers.value && customerId) {
-    await fetchCustomerAssets(customerId)
+  // If customer is creating for themselves, fetch their assets (no customerId = use JWT)
+  if (!canCreateForOthers.value) {
+    await fetchCustomerAssets()
   }
 }
 
@@ -168,8 +168,8 @@ const onCustomerSelect = async (customer: Customer | null) => {
   }
 }
 
-// Fetch customer assets
-const fetchCustomerAssets = async (customerId: string) => {
+// Fetch customer assets (customerId optional - backend resolves from JWT if not provided)
+const fetchCustomerAssets = async (customerId?: string) => {
   loadingAssets.value = true
   try {
     const response = await assetService.getCustomerAssets(customerId)
@@ -582,8 +582,8 @@ onMounted(async () => {
               />
             </div>
 
-            <!-- Available Balance -->
-            <div v-if="orderForm.customerId && !loadingAssets" class="rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 space-y-2">
+            <!-- Available Balance - show when assets loaded (for customers) or customerId selected (for admins/brokers) -->
+            <div v-if="(customerAssets.length > 0 || orderForm.customerId) && !loadingAssets" class="rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 space-y-2">
               <div class="flex justify-between items-center">
                 <span class="text-secondary-foreground text-sm">Available TRY:</span>
                 <span class="font-semibold" :class="orderForm.orderSide === 'BUY' && !isBalanceSufficient ? 'text-danger' : 'text-success'">

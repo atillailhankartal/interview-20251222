@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orange Broker HUB - Enter The Matrix</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', monospace;
+            background: #000;
+            color: #00ff00;
+        }
+
+        /* Matrix Rain Background */
+        #matrix {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        /* Terminal - Full Screen */
+        .terminal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 30px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #00ff00 #111;
+        }
+
+        .terminal::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .terminal::-webkit-scrollbar-track {
+            background: #111;
+        }
+
+        .terminal::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 4px;
+        }
+
+        .line {
+            margin: 4px 0;
+            font-size: 1rem;
+            line-height: 1.5;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: opacity 0.2s, transform 0.2s;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .line.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 10px;
+            height: 1.1rem;
+            background: #00ff00;
+            animation: blink 0.7s infinite;
+            vertical-align: middle;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Colors */
+        .green { color: #00ff00; }
+        .orange { color: #ff6b35; }
+        .yellow { color: #ffb347; }
+        .blue { color: #64B5F6; }
+        .cyan { color: #00ffff; }
+        .white { color: #ffffff; }
+        .dim { color: #555; }
+        .red { color: #ff4444; }
+
+        .prompt-user { color: #ff6b35; }
+        .prompt-at { color: #666; }
+        .prompt-host { color: #ffb347; }
+        .prompt-path { color: #64B5F6; }
+        .prompt-symbol { color: #00ff00; }
+
+        .ascii-art {
+            color: #ff6b35;
+            font-size: 0.65rem;
+            line-height: 1.1;
+        }
+
+        .rabbit {
+            font-size: 1.5rem;
+            animation: hop 0.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes hop {
+            from { transform: translateY(0); }
+            to { transform: translateY(-5px); }
+        }
+
+        .blink {
+            animation: blink 0.5s infinite;
+        }
+
+        .service-ok { color: #00ff00; }
+        .service-name { color: #aaa; }
+
+        .progress-bar {
+            display: inline-block;
+            width: 300px;
+            height: 16px;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 2px;
+            overflow: hidden;
+            vertical-align: middle;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #00aa00);
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        .feature-box {
+            display: inline-block;
+            border: 1px solid #ff6b35;
+            padding: 8px 16px;
+            margin: 5px 10px 5px 0;
+            border-radius: 4px;
+            background: rgba(255, 107, 53, 0.1);
+        }
+
+        .feature-title { color: #ffb347; }
+        .feature-desc { color: #666; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <canvas id="matrix"></canvas>
+    <div class="terminal" id="terminal"></div>
+
+    <script>
+        // Matrix Rain
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        const chars = 'ORANGEBROKERHUB01アイウエオカキクケコサシスセソ日本語マトリックス兎$@#%&';
+        const charArray = chars.split('');
+        const fontSize = 18;
+        let columns = Math.floor(canvas.width / fontSize);
+        let drops = Array(columns).fill(1);
+
+        function drawMatrix() {
+            // More visible trail - less fade
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < drops.length; i++) {
+                const char = charArray[Math.floor(Math.random() * charArray.length)];
+                const x = i * fontSize;
+                const y = drops[i] * fontSize;
+
+                // Brighter colors with glow effect
+                if (Math.random() > 0.95) {
+                    // Orange highlight characters
+                    ctx.fillStyle = '#ff6b35';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#ff6b35';
+                } else if (Math.random() > 0.9) {
+                    // Bright green head
+                    ctx.fillStyle = '#00ff00';
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#00ff00';
+                } else {
+                    // Normal green with slight glow
+                    ctx.fillStyle = '#00dd00';
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = '#00ff00';
+                }
+
+                ctx.font = `bold ${fontSize}px monospace`;
+                ctx.fillText(char, x, y);
+
+                // Reset shadow for performance
+                ctx.shadowBlur = 0;
+
+                if (y > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 35);
+
+        // Terminal
+        const terminal = document.getElementById('terminal');
+
+        const asciiLogo = `
+ ██████╗ ██████╗  █████╗ ███╗   ██╗ ██████╗ ███████╗
+██╔═══██╗██╔══██╗██╔══██╗████╗  ██║██╔════╝ ██╔════╝
+██║   ██║██████╔╝███████║██╔██╗ ██║██║  ███╗█████╗
+██║   ██║██╔══██╗██╔══██║██║╚██╗██║██║   ██║██╔══╝
+╚██████╔╝██║  ██║██║  ██║██║ ╚████║╚██████╔╝███████╗
+ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝
+    ____  ____   ___  _  _______ ____    _   _ _   _ ____
+   | __ )|  _ \\ / _ \\| |/ / ____|  _ \\  | | | | | | | __ )
+   |  _ \\| |_) | | | | ' /|  _| | |_) | | |_| | | | |  _ \\
+   | |_) |  _ <| |_| | . \\| |___|  _ <  |  _  | |_| | |_) |
+   |____/|_| \\_\\\\___/|_|\\_\\_____|_| \\_\\ |_| |_|\\___/|____/`;
+
+        const lines = [
+            { type: 'clear', delay: 500 },
+            { type: 'text', content: '<span class="dim">Last login: ' + new Date().toLocaleString() + ' on ttys000</span>', delay: 200 },
+            { type: 'prompt', delay: 300 },
+            { type: 'type', content: 'cat /etc/motd', delay: 100 },
+            { type: 'text', content: '', delay: 100 },
+            { type: 'text', content: '<span class="cyan">Wake up, Reviewer...</span>', delay: 800 },
+            { type: 'text', content: '<span class="cyan">The Matrix has you...</span>', delay: 800 },
+            { type: 'text', content: '<span class="cyan">Follow the white rabbit. <span class="rabbit">🐰</span></span>', delay: 1000 },
+            { type: 'text', content: '', delay: 300 },
+            { type: 'prompt', delay: 300 },
+            { type: 'type', content: 'cat welcome.txt', delay: 100 },
+            { type: 'text', content: '', delay: 100 },
+            { type: 'ascii', content: asciiLogo, delay: 300 },
+            { type: 'text', content: '', delay: 200 },
+            { type: 'text', content: '<span class="yellow">       Event-Driven Microservices Brokerage Platform</span>', delay: 300 },
+            { type: 'text', content: '<span class="dim">       Built with Java 17, Spring Boot 3.2, Vue.js 3, Kafka</span>', delay: 200 },
+            { type: 'text', content: '', delay: 300 },
+            { type: 'prompt', delay: 300 },
+            { type: 'type', content: 'cat README.md | head -30', delay: 100 },
+            { type: 'text', content: '', delay: 200 },
+            { type: 'text', content: '<span class="white">## 🎯 What You\'ll See in This Demo</span>', delay: 300 },
+            { type: 'text', content: '', delay: 100 },
+            { type: 'text', content: '<span class="green">✓</span> <span class="orange">Real-time Order Processing</span> - Create, match, and track orders', delay: 200 },
+            { type: 'text', content: '<span class="green">✓</span> <span class="orange">Multi-Role Authentication</span> - Customer, Broker, Admin flows', delay: 200 },
+            { type: 'text', content: '<span class="green">✓</span> <span class="orange">Event-Driven Architecture</span> - Kafka messaging between services', delay: 200 },
+            { type: 'text', content: '<span class="green">✓</span> <span class="orange">Email Notifications</span> - Real email notifications via Mailpit', delay: 200 },
+            { type: 'text', content: '<span class="green">✓</span> <span class="orange">Complete Audit Trail</span> - MongoDB-based audit logging', delay: 200 },
+            { type: 'text', content: '<span class="green">✓</span> <span class="orange">LGTM Observability</span> - Logs, Metrics, Traces in Grafana', delay: 200 },
+            { type: 'text', content: '', delay: 300 },
+            { type: 'text', content: '<span class="white">## 🏗️ Architecture</span>', delay: 200 },
+            { type: 'text', content: '', delay: 100 },
+            { type: 'text', content: '<span class="dim">┌─────────────┐     ┌─────────────┐     ┌─────────────┐</span>', delay: 100 },
+            { type: 'text', content: '<span class="dim">│</span> <span class="blue">Frontend</span>    <span class="dim">│────▶│</span> <span class="yellow">API Gateway</span> <span class="dim">│────▶│</span> <span class="orange">Services</span>    <span class="dim">│</span>', delay: 100 },
+            { type: 'text', content: '<span class="dim">│</span> <span class="blue">Vue.js 3</span>    <span class="dim">│     │</span> <span class="yellow">Traefik</span>     <span class="dim">│     │</span> <span class="orange">Spring Boot</span> <span class="dim">│</span>', delay: 100 },
+            { type: 'text', content: '<span class="dim">└─────────────┘     └─────────────┘     └──────┬──────┘</span>', delay: 100 },
+            { type: 'text', content: '<span class="dim">                                               │</span>', delay: 100 },
+            { type: 'text', content: '<span class="dim">                    ┌──────────────────────────┴───────┐</span>', delay: 100 },
+            { type: 'text', content: '<span class="dim">                    │         </span><span class="green">Apache Kafka</span><span class="dim">              │</span>', delay: 100 },
+            { type: 'text', content: '<span class="dim">                    │    Event-Driven Messaging        │</span>', delay: 100 },
+            { type: 'text', content: '<span class="dim">                    └──────────────────────────────────┘</span>', delay: 100 },
+            { type: 'text', content: '', delay: 300 },
+            { type: 'prompt', delay: 300 },
+            { type: 'type', content: './check-services.sh', delay: 100 },
+            { type: 'text', content: '', delay: 200 },
+            { type: 'text', content: '<span class="yellow">[INFO]</span> Checking platform services...', delay: 300 },
+            { type: 'service', name: 'Keycloak (Auth)', port: '8180', delay: 200 },
+            { type: 'service', name: 'Order Service', port: '7081', delay: 150 },
+            { type: 'service', name: 'Asset Service', port: '7082', delay: 150 },
+            { type: 'service', name: 'Customer Service', port: '7083', delay: 150 },
+            { type: 'service', name: 'Order Processor', port: '7084', delay: 150 },
+            { type: 'service', name: 'Notification Service', port: '7085', delay: 150 },
+            { type: 'service', name: 'Audit Service', port: '7086', delay: 150 },
+            { type: 'service', name: 'Web API Gateway', port: '7087', delay: 150 },
+            { type: 'service', name: 'Kafka', port: '9092', delay: 150 },
+            { type: 'service', name: 'Frontend', port: '4000', delay: 200 },
+            { type: 'text', content: '', delay: 200 },
+            { type: 'text', content: '<span class="green">✓</span> <span class="white">All 10 services operational!</span>', delay: 400 },
+            { type: 'text', content: '', delay: 300 },
+            { type: 'prompt', delay: 300 },
+            { type: 'type', content: './enter-the-brokage-matrix.sh', delay: 100 },
+            { type: 'text', content: '', delay: 300 },
+            { type: 'text', content: '<span class="orange">[MATRIX]</span> Initializing demo sequence...', delay: 400 },
+            { type: 'text', content: '<span class="orange">[MATRIX]</span> Loading user profiles...', delay: 300 },
+            { type: 'text', content: '', delay: 200 },
+            { type: 'text', content: '<span class="white">  👤 Peter Parker</span> <span class="dim">(Customer)</span> - peter.parker@brokage.com', delay: 200 },
+            { type: 'text', content: '<span class="white">  💼 Tony Stark</span> <span class="dim">(Broker)</span>   - tony.stark@brokage.com', delay: 200 },
+            { type: 'text', content: '<span class="white">  ⚙️  Nick Fury</span> <span class="dim">(Admin)</span>    - nick.fury@brokage.com', delay: 200 },
+            { type: 'text', content: '', delay: 300 },
+            { type: 'text', content: '<span class="yellow">☕ Grab your coffee and sit back...</span>', delay: 500 },
+            { type: 'text', content: '<span class="cyan">🐰 Follow the white rabbit into the Brokage Matrix!</span>', delay: 500 },
+            { type: 'text', content: '', delay: 500 },
+            { type: 'progress', delay: 3000 },
+            { type: 'text', content: '', delay: 300 },
+            { type: 'text', content: '<span class="green blink">▶ LAUNCHING DEMO...</span>', delay: 500 },
+            { type: 'text', content: '', delay: 300 },
+            { type: 'author', delay: 1000 },
+        ];
+
+        function createPrompt() {
+            return '<span class="prompt-user">morpheus</span><span class="prompt-at">@</span><span class="prompt-host">broker-hub</span>:<span class="prompt-path">~</span><span class="prompt-symbol">$</span> ';
+        }
+
+        function addLine(html, className = '') {
+            const div = document.createElement('div');
+            div.className = 'line ' + className;
+            div.innerHTML = html;
+            terminal.appendChild(div);
+            requestAnimationFrame(() => {
+                div.classList.add('visible');
+                terminal.scrollTop = terminal.scrollHeight;
+            });
+            return div;
+        }
+
+        async function typeText(element, text, speed = 30) {
+            let i = 0;
+            let isTag = false;
+            let current = '';
+
+            while (i < text.length) {
+                const char = text.charAt(i);
+                if (char === '<') isTag = true;
+                if (char === '>') isTag = false;
+                current += char;
+                element.innerHTML = createPrompt() + '<span class="white">' + current + '</span><span class="cursor"></span>';
+                terminal.scrollTop = terminal.scrollHeight;
+                i++;
+                if (!isTag) await new Promise(r => setTimeout(r, speed));
+            }
+            element.innerHTML = createPrompt() + '<span class="white">' + current + '</span>';
+        }
+
+        async function runTerminal() {
+            for (const line of lines) {
+                await new Promise(r => setTimeout(r, line.delay));
+
+                if (line.type === 'clear') {
+                    terminal.innerHTML = '';
+                } else if (line.type === 'text') {
+                    addLine(line.content);
+                } else if (line.type === 'prompt') {
+                    addLine(createPrompt() + '<span class="cursor"></span>');
+                } else if (line.type === 'type') {
+                    const lastLine = terminal.lastElementChild;
+                    if (lastLine) {
+                        await typeText(lastLine, line.content, 40);
+                    }
+                } else if (line.type === 'ascii') {
+                    addLine('<pre class="ascii-art">' + line.content + '</pre>');
+                } else if (line.type === 'service') {
+                    addLine(`  <span class="service-name">├─ ${line.name.padEnd(22)}</span> <span class="dim">:${line.port}</span>  <span class="service-ok">[OK]</span>`);
+                } else if (line.type === 'progress') {
+                    const div = addLine('<span class="orange">[MATRIX]</span> Loading... <div class="progress-bar"><div class="progress-fill" id="pf"></div></div> <span id="pp">0%</span>');
+                    const fill = document.getElementById('pf');
+                    const text = document.getElementById('pp');
+                    for (let p = 0; p <= 100; p += 2) {
+                        await new Promise(r => setTimeout(r, 50));
+                        fill.style.width = p + '%';
+                        text.textContent = p + '%';
+                        terminal.scrollTop = terminal.scrollHeight;
+                    }
+                } else if (line.type === 'author') {
+                    addLine('');
+                    addLine('<span class="dim">═══════════════════════════════════════════════════════════════</span>');
+                    addLine('');
+                    addLine('                    <span class="orange">Atilla Ilhan KARTAL</span>');
+                    addLine('                    <span class="dim">Software Architect</span>');
+                    addLine('');
+                    addLine('<span class="dim">═══════════════════════════════════════════════════════════════</span>');
+                }
+
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        }
+
+        window.addEventListener('load', () => setTimeout(runTerminal, 300));
+    </script>
+</body>
+</html>

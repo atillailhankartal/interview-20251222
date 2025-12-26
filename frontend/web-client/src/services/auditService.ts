@@ -68,16 +68,16 @@ export const auditService = {
     if (filter.startDate) params.startDate = filter.startDate
     if (filter.endDate) params.endDate = filter.endDate
 
-    const response = await api.get<AuditPageResponse>('/audit', { params })
-    return { success: true, data: response.data }
+    const response = await api.get<ApiResponse<AuditPageResponse>>('/audit', { params })
+    return response.data
   },
 
   /**
    * Get single audit log by ID (ADMIN only)
    */
   async getAuditLogById(id: string): Promise<ApiResponse<AuditDTO>> {
-    const response = await api.get<AuditDTO>(`/audit/${id}`)
-    return { success: true, data: response.data }
+    const response = await api.get<ApiResponse<AuditDTO>>(`/audit/${id}`)
+    return response.data
   },
 
   /**
@@ -89,19 +89,19 @@ export const auditService = {
     page: number = 0,
     size: number = 50
   ): Promise<ApiResponse<AuditPageResponse>> {
-    const response = await api.get<AuditPageResponse>(
+    const response = await api.get<ApiResponse<AuditPageResponse>>(
       `/audit/entity/${entityType}/${entityId}`,
       { params: { page, size } }
     )
-    return { success: true, data: response.data }
+    return response.data
   },
 
   /**
    * Get audit statistics (ADMIN only)
    */
   async getAuditStats(entityType: string, action: string): Promise<ApiResponse<number>> {
-    const response = await api.get<number>(`/audit/stats/${entityType}/${action}`)
-    return { success: true, data: response.data }
+    const response = await api.get<ApiResponse<number>>(`/audit/stats/${entityType}/${action}`)
+    return response.data
   }
 }
 

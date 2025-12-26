@@ -65,6 +65,17 @@ http:
         - rate-limit-global
         - secure-headers
 
+    # Web API - Dashboard, Analytics, Reports, SSE Streams
+    web-api:
+      rule: "PathPrefix(`/api/dashboard`) || PathPrefix(`/api/stream`) || PathPrefix(`/api/analytics`) || PathPrefix(`/api/reports`)"
+      entryPoints:
+        - web
+      service: web-api
+      middlewares:
+        - cors-dev
+        - rate-limit-global
+        - secure-headers
+
     # ---------------------------------------------------------------------------
     # Infrastructure Routes (Host based)
     # ---------------------------------------------------------------------------
@@ -121,6 +132,11 @@ http:
       loadBalancer:
         servers:
           - url: "http://audit-service:8086"
+
+    web-api:
+      loadBalancer:
+        servers:
+          - url: "http://web-api:8087"
 
     # ---------------------------------------------------------------------------
     # Infrastructure Services
