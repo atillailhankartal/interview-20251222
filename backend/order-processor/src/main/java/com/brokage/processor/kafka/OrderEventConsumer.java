@@ -56,7 +56,7 @@ public class OrderEventConsumer {
 
             switch (eventType) {
                 case "OrderCreatedEvent" -> handleOrderCreated(event, eventId);
-                case "OrderCancelledEvent" -> handleOrderCancelled(event, eventId);
+                case "OrderCanceledEvent" -> handleOrderCanceled(event, eventId);
                 case "AssetReservedEvent" -> handleAssetReserved(event, eventId);
                 case "AssetReservationFailedEvent" -> handleAssetReservationFailed(event, eventId);
                 default -> log.debug("Ignoring event type: {}", eventType);
@@ -151,17 +151,17 @@ public class OrderEventConsumer {
         }
     }
 
-    private void handleOrderCancelled(Map<String, Object> event, UUID eventId) {
+    private void handleOrderCanceled(Map<String, Object> event, UUID eventId) {
         UUID orderId = parseUUID(event.get("orderId"));
         String reason = (String) event.getOrDefault("reason", "User requested cancellation");
 
-        log.info("Processing OrderCancelledEvent for order {}", orderId);
+        log.info("Processing OrderCanceledEvent for order {}", orderId);
 
         matchingEngineService.cancelOrder(orderId, reason);
 
         sagaOrchestrator.getSaga(orderId).ifPresent(saga -> {
             if (saga.isInProgress()) {
-                sagaOrchestrator.failSaga(orderId, "CANCELLED", reason);
+                sagaOrchestrator.failSaga(orderId, "CANCELED", reason);
             }
         });
     }

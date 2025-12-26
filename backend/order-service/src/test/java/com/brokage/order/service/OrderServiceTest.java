@@ -245,7 +245,7 @@ class OrderServiceTest {
             OrderDTO result = orderService.cancelOrder(orderId);
 
             // Then
-            assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELED);
             verify(outboxEventRepository).save(any(OutboxEvent.class));
         }
 
@@ -279,7 +279,7 @@ class OrderServiceTest {
             OrderDTO result = orderService.cancelOrderForCustomer(orderId, customerId);
 
             // Then
-            assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+            assertThat(result.getStatus()).isEqualTo(OrderStatus.CANCELED);
         }
     }
 
@@ -312,7 +312,7 @@ class OrderServiceTest {
         void shouldThrowExceptionWhenMatchingNonPendingOrder() {
             // Given
             Order order = createOrder(orderId, customerId, "AAPL", OrderSide.BUY,
-                    BigDecimal.TEN, BigDecimal.valueOf(150), OrderStatus.CANCELLED);
+                    BigDecimal.TEN, BigDecimal.valueOf(150), OrderStatus.CANCELED);
 
             when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 

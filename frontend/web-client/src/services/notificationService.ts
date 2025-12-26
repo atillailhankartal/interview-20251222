@@ -17,7 +17,7 @@ export interface NotificationDTO {
 export type NotificationType =
   | 'ORDER_CREATED'
   | 'ORDER_MATCHED'
-  | 'ORDER_CANCELLED'
+  | 'ORDER_CANCELED'
   | 'ORDER_FAILED'
   | 'DEPOSIT_COMPLETED'
   | 'WITHDRAWAL_COMPLETED'
@@ -74,7 +74,7 @@ class NotificationStreamService {
       // Handle different event types
       this.eventSource.addEventListener('ORDER_CREATED', (e) => this.handleEvent(e))
       this.eventSource.addEventListener('ORDER_MATCHED', (e) => this.handleEvent(e))
-      this.eventSource.addEventListener('ORDER_CANCELLED', (e) => this.handleEvent(e))
+      this.eventSource.addEventListener('ORDER_CANCELED', (e) => this.handleEvent(e))
       this.eventSource.addEventListener('ORDER_FAILED', (e) => this.handleEvent(e))
       this.eventSource.addEventListener('DEPOSIT_COMPLETED', (e) => this.handleEvent(e))
       this.eventSource.addEventListener('WITHDRAWAL_COMPLETED', (e) => this.handleEvent(e))

@@ -34,7 +34,7 @@ public class AuditEventConsumer {
 
             switch (eventType) {
                 case "OrderCreatedEvent" -> handleOrderCreated(event);
-                case "OrderCancelledEvent" -> handleOrderCancelled(event);
+                case "OrderCanceledEvent" -> handleOrderCanceled(event);
                 case "OrderMatchedEvent" -> handleOrderMatched(event);
                 default -> log.debug("Ignoring event type: {}", eventType);
             }
@@ -88,17 +88,17 @@ public class AuditEventConsumer {
         );
     }
 
-    private void handleOrderCancelled(Map<String, Object> event) {
+    private void handleOrderCanceled(Map<String, Object> event) {
         UUID eventId = parseUUID(event.get("eventId"));
         UUID orderId = parseUUID(event.get("orderId"));
         UUID customerId = parseUUID(event.get("customerId"));
         UUID cancelledBy = parseUUID(event.get("cancelledBy"));
 
         auditService.createAuditLog(
-                "ORDER", orderId, "CANCELLED",
+                "ORDER", orderId, "CANCELED",
                 customerId, cancelledBy, (String) event.getOrDefault("cancelledByRole", "CUSTOMER"),
                 null, Map.of("reason", event.getOrDefault("reason", "User requested")),
-                "Order cancelled", "order-service", eventId
+                "Order canceled", "order-service", eventId
         );
     }
 

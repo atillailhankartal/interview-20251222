@@ -41,6 +41,68 @@ kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
   --replication-factor 1 \
   --config retention.ms=604800000
 
+# Order domain events (outbox pattern)
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic order.created \
+  --partitions 3 \
+  --replication-factor 1 \
+  --config retention.ms=604800000
+
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic order.canceled \
+  --partitions 3 \
+  --replication-factor 1 \
+  --config retention.ms=604800000
+
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic order.matched \
+  --partitions 3 \
+  --replication-factor 1 \
+  --config retention.ms=604800000
+
+# Asset domain events (outbox pattern)
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic asset.assetreserved \
+  --partitions 3 \
+  --replication-factor 1 \
+  --config retention.ms=604800000
+
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic asset.assetreleased \
+  --partitions 3 \
+  --replication-factor 1 \
+  --config retention.ms=604800000
+
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic asset.depositcompleted \
+  --partitions 3 \
+  --replication-factor 1 \
+  --config retention.ms=604800000
+
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic asset.withdrawalcompleted \
+  --partitions 3 \
+  --replication-factor 1 \
+  --config retention.ms=604800000
+
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic asset.settlementcompleted \
+  --partitions 3 \
+  --replication-factor 1 \
+  --config retention.ms=604800000
+
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic asset.assetreservationfailed \
+  --partitions 3 \
+  --replication-factor 1 \
+  --config retention.ms=604800000
+
+kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
+  --topic asset.settlementfailed \
+  --partitions 3 \
+  --replication-factor 1 \
+  --config retention.ms=604800000
+
 # Dead letter queue
 kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists \
   --topic dlq-events \

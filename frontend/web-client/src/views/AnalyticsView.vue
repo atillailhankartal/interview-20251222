@@ -20,7 +20,6 @@ const periods: { label: string; value: AnalyticsPeriod }[] = [
   { label: 'Today', value: 'DAY' },
   { label: 'This Week', value: 'WEEK' },
   { label: 'This Month', value: 'MONTH' },
-  { label: 'This Quarter', value: 'QUARTER' },
   { label: 'This Year', value: 'YEAR' }
 ]
 
@@ -36,7 +35,7 @@ async function loadAnalytics() {
     if (response.success && response.data) {
       analytics.value = response.data
     } else {
-      error.value = response.error || 'Failed to load analytics'
+      error.value = Object.values(response.errors || {}).flat().join(', ') || 'Failed to load analytics'
     }
   } catch (err) {
     error.value = 'Failed to load analytics data'
@@ -126,14 +125,14 @@ onMounted(() => {
     <!-- Analytics Content -->
     <template v-else-if="analytics">
       <!-- Trading Analytics Section -->
-      <div v-if="analytics.trading" class="space-y-6">
-        <h2 class="text-lg font-semibold text-mono flex items-center gap-2">
+      <div v-if="analytics.tradingAnalytics" class="space-y-5">
+        <h2 class="text-lg font-semibold text-mono flex items-center gap-2 pt-4 border-t border-border">
           <i class="ki-filled ki-chart-line text-primary"></i>
           Trading Analytics
         </h2>
 
         <!-- Trading Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
           <div class="kt-card p-5">
             <div class="flex items-center justify-between mb-3">
               <span class="text-secondary-foreground text-sm">Total Orders</span>
@@ -141,9 +140,9 @@ onMounted(() => {
                 <i class="ki-filled ki-handcart text-primary"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.trading.totalOrders) }}</div>
-            <div v-if="analytics.trading.orderGrowth" class="text-xs mt-2" :class="analytics.trading.orderGrowth >= 0 ? 'text-green-600' : 'text-red-600'">
-              {{ formatPercent(analytics.trading.orderGrowth) }} vs previous period
+            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.tradingAnalytics.totalOrders) }}</div>
+            <div v-if="analytics.tradingAnalytics.orderGrowth" class="text-xs mt-2" :class="analytics.tradingAnalytics.orderGrowth >= 0 ? 'text-green-600' : 'text-red-600'">
+              {{ formatPercent(analytics.tradingAnalytics.orderGrowth) }} vs previous period
             </div>
           </div>
 
@@ -154,9 +153,9 @@ onMounted(() => {
                 <i class="ki-filled ki-check-circle text-green-500"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.trading.matchedOrders) }}</div>
+            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.tradingAnalytics.matchedOrders) }}</div>
             <div class="text-xs text-secondary-foreground mt-2">
-              {{ ((analytics.trading.matchedOrders / analytics.trading.totalOrders) * 100 || 0).toFixed(1) }}% match rate
+              {{ ((analytics.tradingAnalytics.matchedOrders / analytics.tradingAnalytics.totalOrders) * 100 || 0).toFixed(1) }}% match rate
             </div>
           </div>
 
@@ -167,9 +166,9 @@ onMounted(() => {
                 <i class="ki-filled ki-dollar text-blue-500"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ formatCurrency(analytics.trading.totalVolume) }}</div>
-            <div v-if="analytics.trading.volumeGrowth" class="text-xs mt-2" :class="analytics.trading.volumeGrowth >= 0 ? 'text-green-600' : 'text-red-600'">
-              {{ formatPercent(analytics.trading.volumeGrowth) }} vs previous period
+            <div class="text-2xl font-semibold text-mono">{{ formatCurrency(analytics.tradingAnalytics.totalVolume ?? analytics.tradingAnalytics.totalTradingVolume ?? 0) }}</div>
+            <div v-if="analytics.tradingAnalytics.volumeGrowth" class="text-xs mt-2" :class="analytics.tradingAnalytics.volumeGrowth >= 0 ? 'text-green-600' : 'text-red-600'">
+              {{ formatPercent(analytics.tradingAnalytics.volumeGrowth) }} vs previous period
             </div>
           </div>
 
@@ -180,25 +179,25 @@ onMounted(() => {
                 <i class="ki-filled ki-cross-circle text-orange-500"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.trading.cancelledOrders) }}</div>
+            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.tradingAnalytics.cancelledOrders) }}</div>
             <div class="text-xs text-secondary-foreground mt-2">
-              {{ ((analytics.trading.cancelledOrders / analytics.trading.totalOrders) * 100 || 0).toFixed(1) }}% cancel rate
+              {{ ((analytics.tradingAnalytics.cancelledOrders / analytics.tradingAnalytics.totalOrders) * 100 || 0).toFixed(1) }}% cancel rate
             </div>
           </div>
         </div>
 
         <!-- Volume Chart -->
-        <div v-if="analytics.trading.dailyVolumes?.length" class="kt-card p-5">
+        <div v-if="analytics.tradingAnalytics.dailyVolumes?.length" class="kt-card p-5">
           <h3 class="text-sm font-medium text-mono mb-4">Daily Trading Volume</h3>
           <div class="h-48 flex items-end gap-1">
             <div
-              v-for="(day, idx) in analytics.trading.dailyVolumes"
+              v-for="(day, idx) in analytics.tradingAnalytics.dailyVolumes"
               :key="idx"
               class="flex-1 flex flex-col items-center gap-1"
             >
               <div
                 class="w-full bg-primary/80 rounded-t hover:bg-primary transition-colors cursor-pointer"
-                :style="{ height: `${Math.max((day.volume / Math.max(...analytics.trading.dailyVolumes.map((d: DailyVolume) => d.volume))) * 100, 5)}%` }"
+                :style="{ height: `${Math.max((day.volume / Math.max(...analytics.tradingAnalytics.dailyVolumes.map((d: DailyVolume) => d.volume))) * 100, 5)}%` }"
                 :title="`${formatCurrency(day.volume)}`"
               ></div>
               <span class="text-xs text-secondary-foreground">{{ formatDate(day.date) }}</span>
@@ -208,13 +207,13 @@ onMounted(() => {
       </div>
 
       <!-- Customer Analytics Section (ADMIN & BROKER only) -->
-      <div v-if="analytics.customer && (isAdmin || isBroker)" class="space-y-6">
-        <h2 class="text-lg font-semibold text-mono flex items-center gap-2">
+      <div v-if="analytics.customerAnalytics && (isAdmin || isBroker)" class="space-y-5 mt-8">
+        <h2 class="text-lg font-semibold text-mono flex items-center gap-2 pt-4 border-t border-border">
           <i class="ki-filled ki-users text-primary"></i>
           Customer Analytics
         </h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
           <div class="kt-card p-5">
             <div class="flex items-center justify-between mb-3">
               <span class="text-secondary-foreground text-sm">Total Customers</span>
@@ -222,7 +221,7 @@ onMounted(() => {
                 <i class="ki-filled ki-users text-primary"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.customer.totalCustomers) }}</div>
+            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.customerAnalytics.totalCustomers) }}</div>
           </div>
 
           <div class="kt-card p-5">
@@ -232,9 +231,9 @@ onMounted(() => {
                 <i class="ki-filled ki-user-tick text-green-500"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.customer.activeCustomers) }}</div>
+            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.customerAnalytics.activeCustomers) }}</div>
             <div class="text-xs text-secondary-foreground mt-2">
-              {{ ((analytics.customer.activeCustomers / analytics.customer.totalCustomers) * 100 || 0).toFixed(1) }}% active rate
+              {{ ((analytics.customerAnalytics.activeCustomers / analytics.customerAnalytics.totalCustomers) * 100 || 0).toFixed(1) }}% active rate
             </div>
           </div>
 
@@ -245,7 +244,7 @@ onMounted(() => {
                 <i class="ki-filled ki-user-add text-blue-500"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.customer.newSignups) }}</div>
+            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.customerAnalytics.newSignups ?? analytics.customerAnalytics.newCustomersThisPeriod ?? 0) }}</div>
           </div>
 
           <div class="kt-card p-5">
@@ -255,12 +254,12 @@ onMounted(() => {
                 <i class="ki-filled ki-wallet text-purple-500"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ formatCurrency(analytics.customer.averagePortfolioValue || 0) }}</div>
+            <div class="text-2xl font-semibold text-mono">{{ formatCurrency(analytics.customerAnalytics.averagePortfolioValue || 0) }}</div>
           </div>
         </div>
 
         <!-- Top Customers Table -->
-        <div v-if="analytics.customer.topCustomers?.length" class="kt-card">
+        <div v-if="analytics.customerAnalytics.topCustomers?.length" class="kt-card">
           <div class="p-5 border-b border-border">
             <h3 class="text-sm font-medium text-mono">Top Customers by Trading Volume</h3>
           </div>
@@ -275,7 +274,7 @@ onMounted(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="customer in analytics.customer.topCustomers" :key="customer.customerId">
+                <tr v-for="customer in analytics.customerAnalytics.topCustomers" :key="customer.customerId">
                   <td>
                     <div class="flex items-center gap-3">
                       <div class="size-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
@@ -285,7 +284,7 @@ onMounted(() => {
                     </div>
                   </td>
                   <td class="text-end">{{ formatNumber(customer.orderCount) }}</td>
-                  <td class="text-end">{{ formatCurrency(customer.totalVolume) }}</td>
+                  <td class="text-end">{{ formatCurrency(customer.totalVolume ?? customer.tradingVolume ?? 0) }}</td>
                   <td class="text-end" :class="(customer.pnl || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
                     {{ formatCurrency(customer.pnl || 0) }}
                   </td>
@@ -297,13 +296,13 @@ onMounted(() => {
       </div>
 
       <!-- Asset Analytics Section -->
-      <div v-if="analytics.asset" class="space-y-6">
-        <h2 class="text-lg font-semibold text-mono flex items-center gap-2">
+      <div v-if="analytics.assetAnalytics" class="space-y-5 mt-8">
+        <h2 class="text-lg font-semibold text-mono flex items-center gap-2 pt-4 border-t border-border">
           <i class="ki-filled ki-graph-up text-primary"></i>
           Asset Analytics
         </h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="grid grid-cols-3 gap-5">
           <div class="kt-card p-5">
             <div class="flex items-center justify-between mb-3">
               <span class="text-secondary-foreground text-sm">Total Assets</span>
@@ -311,7 +310,7 @@ onMounted(() => {
                 <i class="ki-filled ki-chart-pie text-primary"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.asset.totalAssets) }}</div>
+            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.assetAnalytics.totalAssets ?? 0) }}</div>
           </div>
 
           <div class="kt-card p-5">
@@ -321,7 +320,7 @@ onMounted(() => {
                 <i class="ki-filled ki-dollar text-blue-500"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ formatCurrency(analytics.asset.totalMarketCap || 0) }}</div>
+            <div class="text-2xl font-semibold text-mono">{{ formatCurrency(analytics.assetAnalytics.totalMarketCap || 0) }}</div>
           </div>
 
           <div class="kt-card p-5">
@@ -331,12 +330,12 @@ onMounted(() => {
                 <i class="ki-filled ki-graph-up text-green-500"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ analytics.asset.topAssets?.[0]?.symbol || 'N/A' }}</div>
+            <div class="text-2xl font-semibold text-mono">{{ analytics.assetAnalytics.topAssets?.[0]?.symbol || 'N/A' }}</div>
           </div>
         </div>
 
         <!-- Asset Performance Table -->
-        <div v-if="analytics.asset.assetPerformance?.length" class="kt-card">
+        <div v-if="analytics.assetAnalytics.assetPerformance?.length" class="kt-card">
           <div class="p-5 border-b border-border">
             <h3 class="text-sm font-medium text-mono">Asset Performance</h3>
           </div>
@@ -352,17 +351,17 @@ onMounted(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="asset in analytics.asset.assetPerformance" :key="asset.symbol">
+                <tr v-for="asset in analytics.assetAnalytics.assetPerformance" :key="asset.symbol ?? asset.assetSymbol">
                   <td>
-                    <span class="kt-badge kt-badge-sm" :class="asset.change >= 0 ? 'kt-badge-success' : 'kt-badge-danger'">
-                      {{ asset.symbol }}
+                    <span class="kt-badge kt-badge-sm" :class="(asset.change ?? asset.priceChange ?? 0) >= 0 ? 'kt-badge-success' : 'kt-badge-danger'">
+                      {{ asset.symbol ?? asset.assetSymbol }}
                     </span>
                   </td>
-                  <td class="text-end text-mono">{{ formatCurrency(asset.currentPrice) }}</td>
-                  <td class="text-end" :class="asset.change >= 0 ? 'text-green-600' : 'text-red-600'">
-                    {{ formatPercent(asset.change) }}
+                  <td class="text-end text-mono">{{ formatCurrency(asset.currentPrice ?? 0) }}</td>
+                  <td class="text-end" :class="(asset.change ?? asset.priceChange ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'">
+                    {{ formatPercent(asset.change ?? asset.priceChange ?? 0) }}
                   </td>
-                  <td class="text-end">{{ formatCurrency(asset.volume) }}</td>
+                  <td class="text-end">{{ formatCurrency(asset.volume ?? asset.totalVolume ?? 0) }}</td>
                   <td class="text-end">{{ formatNumber(asset.tradeCount) }}</td>
                 </tr>
               </tbody>
@@ -372,13 +371,13 @@ onMounted(() => {
       </div>
 
       <!-- Performance Metrics Section (ADMIN only) -->
-      <div v-if="analytics.performance && isAdmin" class="space-y-6">
-        <h2 class="text-lg font-semibold text-mono flex items-center gap-2">
+      <div v-if="analytics.performanceMetrics && isAdmin" class="space-y-5 mt-8">
+        <h2 class="text-lg font-semibold text-mono flex items-center gap-2 pt-4 border-t border-border">
           <i class="ki-filled ki-setting-2 text-primary"></i>
           System Performance
         </h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
           <div class="kt-card p-5">
             <div class="flex items-center justify-between mb-3">
               <span class="text-secondary-foreground text-sm">Avg Response Time</span>
@@ -386,7 +385,7 @@ onMounted(() => {
                 <i class="ki-filled ki-time text-primary"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ analytics.performance.avgResponseTime }}ms</div>
+            <div class="text-2xl font-semibold text-mono">{{ analytics.performanceMetrics.avgResponseTime }}ms</div>
           </div>
 
           <div class="kt-card p-5">
@@ -396,7 +395,7 @@ onMounted(() => {
                 <i class="ki-filled ki-check-circle text-green-500"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ analytics.performance.uptime?.toFixed(2) }}%</div>
+            <div class="text-2xl font-semibold text-mono">{{ analytics.performanceMetrics.uptime?.toFixed(2) }}%</div>
           </div>
 
           <div class="kt-card p-5">
@@ -406,7 +405,7 @@ onMounted(() => {
                 <i class="ki-filled ki-information-3 text-red-500"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ analytics.performance.errorRate?.toFixed(2) }}%</div>
+            <div class="text-2xl font-semibold text-mono">{{ analytics.performanceMetrics.errorRate?.toFixed(2) }}%</div>
           </div>
 
           <div class="kt-card p-5">
@@ -416,19 +415,19 @@ onMounted(() => {
                 <i class="ki-filled ki-abstract-26 text-blue-500"></i>
               </div>
             </div>
-            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.performance.totalRequests || 0) }}</div>
+            <div class="text-2xl font-semibold text-mono">{{ formatNumber(analytics.performanceMetrics.totalRequests || 0) }}</div>
           </div>
         </div>
 
         <!-- Service Health -->
-        <div v-if="analytics.performance.serviceHealth?.length" class="kt-card">
+        <div v-if="analytics.performanceMetrics.serviceHealth?.length" class="kt-card">
           <div class="p-5 border-b border-border">
             <h3 class="text-sm font-medium text-mono">Service Health</h3>
           </div>
-          <div class="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div class="p-5 grid grid-cols-3 gap-4">
             <div
-              v-for="service in analytics.performance.serviceHealth"
-              :key="service.name"
+              v-for="service in analytics.performanceMetrics.serviceHealth"
+              :key="service.name ?? service.serviceName"
               class="flex items-center justify-between p-3 rounded-lg border border-border"
             >
               <div class="flex items-center gap-3">
@@ -436,9 +435,9 @@ onMounted(() => {
                   class="size-3 rounded-full"
                   :class="service.status === 'UP' ? 'bg-green-500' : service.status === 'DEGRADED' ? 'bg-yellow-500' : 'bg-red-500'"
                 ></div>
-                <span class="text-sm text-mono">{{ service.name }}</span>
+                <span class="text-sm text-mono">{{ service.name ?? service.serviceName }}</span>
               </div>
-              <span class="text-xs text-secondary-foreground">{{ service.responseTime }}ms</span>
+              <span class="text-xs text-secondary-foreground">{{ service.responseTime ?? service.responseTimeMs }}ms</span>
             </div>
           </div>
         </div>

@@ -45,6 +45,8 @@ public class SecurityConfig {
                 // Public endpoints - Market data (no auth required)
                 .requestMatchers("/api/stocks/**").permitAll()
                 .requestMatchers("/api/market/**").permitAll()
+                // Internal service-to-service endpoints (secured by network/API key)
+                .requestMatchers("/internal/**").permitAll()
                 // Actuator endpoints
                 .requestMatchers("/actuator/**").permitAll()
                 // Swagger UI - public for API documentation

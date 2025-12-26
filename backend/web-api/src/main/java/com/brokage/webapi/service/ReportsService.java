@@ -130,10 +130,11 @@ public class ReportsService {
                                                             LocalDate endDate, String token) {
         return Mono.zip(
                 fetchBrokerCustomers(brokerId, token),
-                fetchBrokerOrders(brokerId, startDate, endDate, token)
+                fetchBrokerOrders(brokerId, startDate, endDate, token),
+                fetchCustomerInfo(brokerId, token)  // Fetch broker info
         ).map(tuple -> {
             BrokerPerformanceReport performance = buildBrokerPerformanceReport(
-                    brokerId, tuple.getT1(), tuple.getT2(), startDate, endDate
+                    brokerId, tuple.getT1(), tuple.getT2(), tuple.getT3(), startDate, endDate
             );
             return ReportDTO.builder()
                     .reportId(UUID.randomUUID().toString())
@@ -186,7 +187,7 @@ public class ReportsService {
 
     private Mono<Map<String, Object>> fetchBrokerCustomers(String brokerId, String token) {
         return customerServiceClient.get()
-                .uri("/api/broker-customers/" + brokerId)
+                .uri("/api/customers/broker/" + brokerId + "/customers")
                 .header("Authorization", "Bearer " + token)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
@@ -210,7 +211,17 @@ public class ReportsService {
 
     @SuppressWarnings("unchecked")
     private TradingSummaryReport mapToTradingSummary(Map<String, Object> data, LocalDate date) {
-        List<Map<String, Object>> orders = (List<Map<String, Object>>) data.getOrDefault("data", List.of());
+        // Handle paginated response: { success: true, data: { content: [...], ... } }
+        Object dataObj = data.get("data");
+        List<Map<String, Object>> orders;
+        if (dataObj instanceof Map) {
+            Map<String, Object> pageData = (Map<String, Object>) dataObj;
+            orders = (List<Map<String, Object>>) pageData.getOrDefault("content", List.of());
+        } else if (dataObj instanceof List) {
+            orders = (List<Map<String, Object>>) dataObj;
+        } else {
+            orders = List.of();
+        }
 
         long buyOrders = orders.stream()
                 .filter(o -> "BUY".equals(o.get("orderSide")))
@@ -248,7 +259,8 @@ public class ReportsService {
                                                           Map<String, Object> assetsData,
                                                           Map<String, Object> ordersData,
                                                           Map<String, Object> customerData) {
-        List<Map<String, Object>> assets = (List<Map<String, Object>>) assetsData.getOrDefault("data", List.of());
+        // Handle paginated response
+        List<Map<String, Object>> assets = extractContentList(assetsData);
 
         BigDecimal tryBalance = BigDecimal.ZERO;
         BigDecimal tryUsable = BigDecimal.ZERO;
@@ -301,7 +313,8 @@ public class ReportsService {
     @SuppressWarnings("unchecked")
     private TransactionHistoryReport mapToTransactionHistory(String customerId, Map<String, Object> data,
                                                               LocalDate startDate, LocalDate endDate) {
-        List<Map<String, Object>> orders = (List<Map<String, Object>>) data.getOrDefault("data", List.of());
+        // Handle paginated response
+        List<Map<String, Object>> orders = extractContentList(data);
 
         List<TransactionRecord> transactions = orders.stream()
                 .map(o -> TransactionRecord.builder()
@@ -331,10 +344,21 @@ public class ReportsService {
     private BrokerPerformanceReport buildBrokerPerformanceReport(String brokerId,
                                                                    Map<String, Object> customersData,
                                                                    Map<String, Object> ordersData,
+                                                                   Map<String, Object> brokerData,
                                                                    LocalDate startDate,
                                                                    LocalDate endDate) {
-        List<Map<String, Object>> customers = (List<Map<String, Object>>) customersData.getOrDefault("data", List.of());
-        List<Map<String, Object>> orders = (List<Map<String, Object>>) ordersData.getOrDefault("data", List.of());
+        // Handle paginated response
+        List<Map<String, Object>> customers = extractContentList(customersData);
+        List<Map<String, Object>> orders = extractContentList(ordersData);
+
+        // Extract broker name from broker data
+        Map<String, Object> broker = (Map<String, Object>) brokerData.getOrDefault("data", Map.of());
+        String firstName = (String) broker.getOrDefault("firstName", "");
+        String lastName = (String) broker.getOrDefault("lastName", "");
+        String brokerName = (firstName + " " + lastName).trim();
+        if (brokerName.isEmpty()) {
+            brokerName = "Broker " + brokerId;
+        }
 
         BigDecimal totalVolume = orders.stream()
                 .map(o -> getBigDecimal(o, "size").multiply(getBigDecimal(o, "price")))
@@ -342,7 +366,7 @@ public class ReportsService {
 
         return BrokerPerformanceReport.builder()
                 .brokerId(brokerId)
-                .brokerName("Broker " + brokerId)
+                .brokerName(brokerName)
                 .startDate(startDate)
                 .endDate(endDate)
                 .assignedCustomers(customers.size())
@@ -372,5 +396,17 @@ public class ReportsService {
             return BigDecimal.valueOf(((Number) value).doubleValue());
         }
         return BigDecimal.ZERO;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> extractContentList(Map<String, Object> response) {
+        Object dataObj = response.get("data");
+        if (dataObj instanceof Map) {
+            Map<String, Object> pageData = (Map<String, Object>) dataObj;
+            return (List<Map<String, Object>>) pageData.getOrDefault("content", List.of());
+        } else if (dataObj instanceof List) {
+            return (List<Map<String, Object>>) dataObj;
+        }
+        return List.of();
     }
 }

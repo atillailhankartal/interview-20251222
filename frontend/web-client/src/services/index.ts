@@ -17,6 +17,7 @@ export type {
   Customer,
   CustomerTier,
   CustomerStatus,
+  CustomerRole,
   CreateCustomerRequest,
   UpdateCustomerRequest,
   CustomerFilters

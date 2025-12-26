@@ -29,7 +29,7 @@ public class OrderEventConsumer {
 
             switch (eventType) {
                 case "OrderCreatedEvent" -> handleOrderCreated(event);
-                case "OrderCancelledEvent" -> handleOrderCancelled(event);
+                case "OrderCanceledEvent" -> handleOrderCanceled(event);
                 case "OrderMatchedEvent" -> handleOrderMatched(event);
                 default -> log.debug("Ignoring event type: {}", eventType);
             }
@@ -55,7 +55,7 @@ public class OrderEventConsumer {
         }
     }
 
-    private void handleOrderCancelled(JsonNode event) {
+    private void handleOrderCanceled(JsonNode event) {
         try {
             UUID customerId = UUID.fromString(event.get("customerId").asText());
             UUID orderId = UUID.fromString(event.get("orderId").asText());
@@ -64,11 +64,11 @@ public class OrderEventConsumer {
             String size = event.get("size").asText();
 
             notificationService.createOrderNotification(
-                    customerId, orderId, "CANCELLED", assetName, orderSide, size);
+                    customerId, orderId, "CANCELED", assetName, orderSide, size);
 
             log.info("Created notification for order cancellation: {}", orderId);
         } catch (Exception e) {
-            log.error("Error handling OrderCancelledEvent: {}", e.getMessage(), e);
+            log.error("Error handling OrderCanceledEvent: {}", e.getMessage(), e);
         }
     }
 

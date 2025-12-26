@@ -83,7 +83,7 @@ public class Notification {
         SENT,
         DELIVERED,
         FAILED,
-        CANCELLED
+        CANCELED
     }
 
     public enum NotificationChannel {

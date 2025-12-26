@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -19,4 +20,16 @@ public class OrderStatsDTO {
     private long totalOrders;
     private BigDecimal totalVolume;
     private List<OrderDTO> recentOrders;
+    private List<TopTraderDTO> topTraders;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class TopTraderDTO {
+        private UUID customerId;
+        private String customerName;
+        private long orderCount;
+        private BigDecimal tradingVolume;
+    }
 }

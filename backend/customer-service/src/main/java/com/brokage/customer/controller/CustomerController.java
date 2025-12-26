@@ -2,6 +2,7 @@ package com.brokage.customer.controller;
 
 import com.brokage.common.dto.ApiResponse;
 import com.brokage.common.dto.PageResponse;
+import com.brokage.common.enums.CustomerRole;
 import com.brokage.common.enums.CustomerStatus;
 import com.brokage.common.enums.CustomerTier;
 import com.brokage.customer.dto.BrokerCustomerDTO;
@@ -49,10 +50,12 @@ public class CustomerController {
     }
 
     @GetMapping("/me")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'BROKER')")
     public ResponseEntity<ApiResponse<CustomerDTO>> getCurrentCustomer(@AuthenticationPrincipal Jwt jwt) {
         String keycloakUserId = jwt.getSubject();
-        CustomerDTO customer = customerService.getCustomerByKeycloakUserId(keycloakUserId);
+        String email = jwt.getClaimAsString("email");
+        // Use getOrLinkCustomerByKeycloakUserId to auto-link seeded users on first access
+        CustomerDTO customer = customerService.getOrLinkCustomerByKeycloakUserId(keycloakUserId, email);
         return ResponseEntity.ok(ApiResponse.success(customer));
     }
 
@@ -61,13 +64,35 @@ public class CustomerController {
     public ResponseEntity<ApiResponse<PageResponse<CustomerDTO>>> listCustomers(
             @RequestParam(required = false) CustomerTier tier,
             @RequestParam(required = false) CustomerStatus status,
+            @RequestParam(required = false) CustomerRole role,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal Jwt jwt) {
 
+        // Check if user is BROKER - if so, only show their assigned customers
+        if (isBrokerRole(jwt)) {
+            // Get broker's customer ID by looking up the customer by Keycloak user ID
+            // Use getOrLinkCustomerByKeycloakUserId to auto-link seeded users on first login
+            String keycloakUserId = jwt.getSubject();
+            String email = jwt.getClaimAsString("email");
+            try {
+                CustomerDTO broker = customerService.getOrLinkCustomerByKeycloakUserId(keycloakUserId, email);
+                log.debug("Broker {} fetching their assigned customers", broker.getId());
+                PageResponse<CustomerDTO> customers = brokerCustomerService.getBrokerCustomers(
+                        broker.getId(), page, size);
+                return ResponseEntity.ok(ApiResponse.success(customers));
+            } catch (Exception e) {
+                log.warn("Could not find broker customer for Keycloak user {}: {}", keycloakUserId, e.getMessage());
+                // Fall through to show all customers if broker lookup fails
+            }
+        }
+
+        // ADMIN sees all customers
         CustomerFilterRequest filter = CustomerFilterRequest.builder()
                 .tier(tier)
                 .status(status)
+                .role(role)
                 .search(search)
                 .page(page)
                 .size(size)
@@ -137,6 +162,7 @@ public class CustomerController {
     /**
      * Get orderable customers for order creation (ADMIN and BROKER only)
      * Only returns customers with CUSTOMER role (not ADMIN or BROKER)
+     * BROKER only sees their assigned customers
      * Supports search and pagination for remote select component
      */
     @GetMapping("/for-order")
@@ -144,10 +170,30 @@ public class CustomerController {
     public ResponseEntity<ApiResponse<PageResponse<CustomerDTO>>> getCustomersForOrder(
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal Jwt jwt) {
 
         log.debug("Getting orderable customers for order creation, search: {}, page: {}, size: {}", search, page, size);
 
+        // Check if user is BROKER - if so, only show their assigned customers
+        if (isBrokerRole(jwt)) {
+            // Get broker's customer ID by looking up the customer by Keycloak user ID
+            // Use getOrLinkCustomerByKeycloakUserId to auto-link seeded users on first login
+            String keycloakUserId = jwt.getSubject();
+            String email = jwt.getClaimAsString("email");
+            try {
+                CustomerDTO broker = customerService.getOrLinkCustomerByKeycloakUserId(keycloakUserId, email);
+                log.debug("Broker {} fetching their orderable customers", broker.getId());
+                PageResponse<CustomerDTO> customers = brokerCustomerService.getBrokerCustomersForOrder(
+                        broker.getId(), search, page, size);
+                return ResponseEntity.ok(ApiResponse.success(customers));
+            } catch (Exception e) {
+                log.warn("Could not find broker customer for Keycloak user {}: {}", keycloakUserId, e.getMessage());
+                // Fall through to show all customers if broker lookup fails
+            }
+        }
+
+        // ADMIN sees all orderable customers
         CustomerFilterRequest filter = CustomerFilterRequest.builder()
                 .search(search)
                 .orderableOnly(true)
@@ -190,7 +236,7 @@ public class CustomerController {
      * Get all customers for a broker (BROKER can only see their own, ADMIN can see all)
      */
     @GetMapping("/broker/{brokerId}/customers")
-    @PreAuthorize("hasRole('ADMIN') or (hasRole('BROKER') and #brokerId == authentication.principal.claims['customer_id'])")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BROKER')")
     public ResponseEntity<ApiResponse<PageResponse<CustomerDTO>>> getBrokerCustomers(
             @PathVariable UUID brokerId,
             @RequestParam(defaultValue = "0") int page,
@@ -270,5 +316,19 @@ public class CustomerController {
             @PathVariable UUID customerId) {
         java.util.List<UUID> brokerIds = brokerCustomerService.getCustomerBrokerIds(customerId);
         return ResponseEntity.ok(ApiResponse.success(brokerIds));
+    }
+
+    // ==================== HELPER METHODS ====================
+
+    @SuppressWarnings("unchecked")
+    private boolean isBrokerRole(Jwt jwt) {
+        Object realmAccess = jwt.getClaim("realm_access");
+        if (realmAccess instanceof java.util.Map<?, ?> accessMap) {
+            Object roles = accessMap.get("roles");
+            if (roles instanceof java.util.List<?> roleList) {
+                return roleList.stream().anyMatch(r -> "BROKER".equals(r));
+            }
+        }
+        return false;
     }
 }

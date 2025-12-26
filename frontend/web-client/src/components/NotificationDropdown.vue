@@ -72,7 +72,7 @@ function getTypeIcon(type: string): string {
   switch (type) {
     case 'ORDER_CREATED': return 'ki-handcart'
     case 'ORDER_MATCHED': return 'ki-check-circle'
-    case 'ORDER_CANCELLED': return 'ki-cross-circle'
+    case 'ORDER_CANCELED': return 'ki-cross-circle'
     case 'ORDER_FAILED': return 'ki-information-3'
     case 'DEPOSIT_COMPLETED': return 'ki-arrow-down'
     case 'WITHDRAWAL_COMPLETED': return 'ki-arrow-up'

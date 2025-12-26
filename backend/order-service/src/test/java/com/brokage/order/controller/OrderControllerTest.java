@@ -234,7 +234,7 @@ class OrderControllerTest {
         @DisplayName("Should cancel order as ADMIN")
         void shouldCancelOrderAsAdmin() throws Exception {
             // Given
-            OrderDTO orderDTO = createOrderDTO(orderId, customerId, "AAPL", OrderSide.BUY, OrderStatus.CANCELLED);
+            OrderDTO orderDTO = createOrderDTO(orderId, customerId, "AAPL", OrderSide.BUY, OrderStatus.CANCELED);
 
             when(orderService.cancelOrder(orderId)).thenReturn(orderDTO);
 
@@ -255,7 +255,7 @@ class OrderControllerTest {
         @DisplayName("Should cancel own order as CUSTOMER")
         void shouldCancelOwnOrderAsCustomer() throws Exception {
             // Given
-            OrderDTO orderDTO = createOrderDTO(orderId, customerId, "AAPL", OrderSide.BUY, OrderStatus.CANCELLED);
+            OrderDTO orderDTO = createOrderDTO(orderId, customerId, "AAPL", OrderSide.BUY, OrderStatus.CANCELED);
 
             when(orderService.cancelOrderForCustomer(orderId, customerId)).thenReturn(orderDTO);
 
@@ -451,7 +451,7 @@ class OrderControllerTest {
         void brokerShouldCancelAssignedCustomerOrder() throws Exception {
             // Given
             OrderDTO orderDTO = createOrderDTO(orderId, assignedCustomerId, "AAPL", OrderSide.BUY, OrderStatus.PENDING);
-            OrderDTO cancelledOrder = createOrderDTO(orderId, assignedCustomerId, "AAPL", OrderSide.BUY, OrderStatus.CANCELLED);
+            OrderDTO cancelledOrder = createOrderDTO(orderId, assignedCustomerId, "AAPL", OrderSide.BUY, OrderStatus.CANCELED);
 
             when(orderService.getOrderById(orderId)).thenReturn(orderDTO);
             when(customerClient.isBrokerOfCustomer(brokerId, assignedCustomerId)).thenReturn(true);

@@ -1,5 +1,6 @@
 package com.brokage.asset.service;
 
+import com.brokage.asset.dto.AssetStatsDTO;
 import com.brokage.asset.dto.CustomerAssetDTO;
 import com.brokage.asset.dto.DepositWithdrawRequest;
 import com.brokage.asset.entity.CustomerAsset;
@@ -233,6 +234,48 @@ public class AssetService {
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Get asset statistics for analytics dashboard (ADMIN only)
+     */
+    @Transactional(readOnly = true)
+    public AssetStatsDTO getStats() {
+        log.debug("Getting asset statistics for analytics");
+
+        List<CustomerAsset> allAssets = customerAssetRepository.findAll();
+
+        BigDecimal totalAUM = allAssets.stream()
+                .map(CustomerAsset::getSize)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalTryBalance = allAssets.stream()
+                .filter(a -> TRY_ASSET.equals(a.getAssetName()))
+                .map(CustomerAsset::getSize)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long totalCustomersWithAssets = allAssets.stream()
+                .map(CustomerAsset::getCustomerId)
+                .distinct()
+                .count();
+
+        long uniqueAssetTypes = allAssets.stream()
+                .map(CustomerAsset::getAssetName)
+                .distinct()
+                .count();
+
+        BigDecimal largestPosition = allAssets.stream()
+                .map(CustomerAsset::getSize)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
+
+        return AssetStatsDTO.builder()
+                .totalAUM(totalAUM)
+                .totalTryBalance(totalTryBalance)
+                .totalCustomersWithAssets(totalCustomersWithAssets)
+                .uniqueAssetTypes(uniqueAssetTypes)
+                .largestPosition(largestPosition)
+                .build();
     }
 
     private CustomerAsset createNewAsset(UUID customerId, String assetName) {

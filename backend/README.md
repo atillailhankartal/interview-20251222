@@ -183,7 +183,7 @@ CREATE TABLE orders (
     order_side VARCHAR(10) NOT NULL,  -- BUY, SELL
     size DECIMAL(19,4) NOT NULL,
     price DECIMAL(19,4) NOT NULL,
-    status VARCHAR(20) NOT NULL,      -- PENDING, MATCHED, CANCELLED
+    status VARCHAR(20) NOT NULL,      -- PENDING, MATCHED, CANCELED
     created_at TIMESTAMP NOT NULL
 );
 ```

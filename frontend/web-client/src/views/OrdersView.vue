@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useOrdersStore } from '@/stores/orders'
 import { useMarketStore } from '@/stores/market'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
+import { useCustomersStore } from '@/stores/customers'
 import CustomerRemoteSelect from '@/components/CustomerRemoteSelect.vue'
+import { assetService, type CustomerAsset } from '@/services/assetService'
 import type { OrderStatus, CreateOrderRequest, Customer } from '@/services'
 
 const ordersStore = useOrdersStore()
 const marketStore = useMarketStore()
 const authStore = useAuthStore()
+const toastStore = useToastStore()
+const customersStore = useCustomersStore()
 
 // Modal state
 const showCreateModal = ref(false)
@@ -36,6 +41,16 @@ const canMatch = (status: OrderStatus) => (isAdmin.value || isBroker.value) && [
 // Get broker ID for customer selection (from user's keycloak customer_id claim)
 const brokerId = computed(() => isBroker.value && !isAdmin.value ? authStore.user?.id : undefined)
 
+// Customer name lookup helper
+const getCustomerName = (customerId: string): string => {
+  const customer = customersStore.customers.find(c => c.id === customerId)
+  if (customer) {
+    return `${customer.firstName} ${customer.lastName}`
+  }
+  // Show abbreviated ID if customer not found
+  return customerId.substring(0, 8) + '...'
+}
+
 // Pagination computed - handle edge cases
 const paginationTotal = computed(() => ordersStore.totalElements || ordersStore.orders.length || 0)
 const paginationStart = computed(() => {
@@ -59,7 +74,7 @@ const statusBadgeClass = (status: OrderStatus) => {
     ORDER_CONFIRMED: 'kt-badge-info',
     MATCHED: 'kt-badge-success',
     PARTIALLY_FILLED: 'kt-badge-primary',
-    CANCELLED: 'kt-badge-secondary',
+    CANCELED: 'kt-badge-secondary',
     REJECTED: 'kt-badge-danger',
     FAILED: 'kt-badge-danger'
   }
@@ -81,38 +96,91 @@ const formatDate = (dateString: string | null | undefined) => {
 }
 
 const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
-    currency: 'USD'
+    currency: 'TRY'
   }).format(price)
 }
 
 // Selected customer ref for display
 const selectedCustomerName = ref('')
 
+// Customer assets for balance display
+const customerAssets = ref<CustomerAsset[]>([])
+const loadingAssets = ref(false)
+
+// Computed: Available TRY balance
+const availableTry = computed(() => {
+  const tryAsset = customerAssets.value.find(a => a.assetName === 'TRY')
+  return tryAsset?.usableSize ?? 0
+})
+
+// Computed: Available asset balance for SELL orders
+const availableAsset = computed(() => {
+  if (!orderForm.value.assetName || orderForm.value.assetName === 'TRY') return 0
+  const asset = customerAssets.value.find(a => a.assetName === orderForm.value.assetName)
+  return asset?.usableSize ?? 0
+})
+
+// Computed: Check if balance is sufficient
+const isBalanceSufficient = computed(() => {
+  const totalValue = orderForm.value.size * orderForm.value.price
+  if (orderForm.value.orderSide === 'BUY') {
+    return availableTry.value >= totalValue
+  } else {
+    return availableAsset.value >= orderForm.value.size
+  }
+})
+
 // Actions
-const openCreateModal = () => {
+const openCreateModal = async () => {
+  const customerId = canCreateForOthers.value ? '' : (authStore.user?.id || '')
   orderForm.value = {
     // Admin and Broker select customer, Customer uses their own ID
-    customerId: canCreateForOthers.value ? '' : (authStore.user?.id || ''),
+    customerId,
     assetName: '',
     orderSide: 'BUY',
     size: 1,
     price: 0
   }
   selectedCustomerName.value = ''
+  customerAssets.value = []
   formError.value = null
   showCreateModal.value = true
+
+  // If customer is creating for themselves, fetch their assets
+  if (!canCreateForOthers.value && customerId) {
+    await fetchCustomerAssets(customerId)
+  }
 }
 
 // Handle customer selection from remote select
-const onCustomerSelect = (customer: Customer | null) => {
+const onCustomerSelect = async (customer: Customer | null) => {
   if (customer) {
     orderForm.value.customerId = customer.id
     selectedCustomerName.value = `${customer.firstName} ${customer.lastName}`
+    // Fetch customer assets for balance display
+    await fetchCustomerAssets(customer.id)
   } else {
     orderForm.value.customerId = ''
     selectedCustomerName.value = ''
+    customerAssets.value = []
+  }
+}
+
+// Fetch customer assets
+const fetchCustomerAssets = async (customerId: string) => {
+  loadingAssets.value = true
+  try {
+    const response = await assetService.getCustomerAssets(customerId)
+    if (response.success && response.data) {
+      customerAssets.value = response.data
+    }
+  } catch (e) {
+    console.error('Failed to fetch customer assets:', e)
+    customerAssets.value = []
+  } finally {
+    loadingAssets.value = false
   }
 }
 
@@ -144,9 +212,12 @@ const submitOrder = async () => {
 
   try {
     await ordersStore.createOrder(orderForm.value)
+    toastStore.orderCreated(orderForm.value.assetName, orderForm.value.orderSide, orderForm.value.size)
     closeCreateModal()
   } catch (e) {
-    formError.value = e instanceof Error ? e.message : 'Failed to create order'
+    const message = e instanceof Error ? e.message : 'Failed to create order'
+    formError.value = message
+    toastStore.orderFailed(message)
   } finally {
     submitting.value = false
   }
@@ -163,9 +234,12 @@ const cancelOrder = async () => {
   submitting.value = true
   try {
     await ordersStore.cancelOrder(selectedOrderId.value)
+    toastStore.orderCanceled()
     showCancelConfirm.value = false
     selectedOrderId.value = null
   } catch (e) {
+    const message = e instanceof Error ? e.message : 'Failed to cancel order'
+    toastStore.error('Cancel Failed', message)
     console.error('Failed to cancel order:', e)
   } finally {
     submitting.value = false
@@ -174,8 +248,16 @@ const cancelOrder = async () => {
 
 const matchOrder = async (orderId: string) => {
   try {
+    const order = ordersStore.orders.find(o => o.id === orderId)
     await ordersStore.matchOrder(orderId)
+    if (order) {
+      toastStore.orderMatched(order.assetName, order.orderSide, order.size)
+    } else {
+      toastStore.success('Order Matched', 'Order has been matched successfully')
+    }
   } catch (e) {
+    const message = e instanceof Error ? e.message : 'Failed to match order'
+    toastStore.error('Match Failed', message)
     console.error('Failed to match order:', e)
   }
 }
@@ -193,7 +275,9 @@ const onAssetSelect = (symbol: string) => {
 onMounted(async () => {
   await Promise.all([
     ordersStore.fetchOrders(),
-    marketStore.fetchStocks()
+    marketStore.fetchStocks(),
+    // Fetch customers for name lookup (Admin/Broker only)
+    (isAdmin.value || isBroker.value) ? customersStore.fetchCustomers() : Promise.resolve()
   ])
 })
 </script>
@@ -230,7 +314,7 @@ onMounted(async () => {
               <option value="ASSET_RESERVED">Reserved</option>
               <option value="ORDER_CONFIRMED">Confirmed</option>
               <option value="MATCHED">Matched</option>
-              <option value="CANCELLED">Cancelled</option>
+              <option value="CANCELED">Cancelled</option>
               <option value="REJECTED">Rejected</option>
             </select>
           </div>
@@ -302,6 +386,7 @@ onMounted(async () => {
             <thead>
               <tr>
                 <th class="min-w-[100px]">Order ID</th>
+                <th v-if="isAdmin || isBroker" class="min-w-[140px]">Customer</th>
                 <th class="min-w-[100px]">Asset</th>
                 <th class="min-w-[80px]">Side</th>
                 <th class="min-w-[80px]">Quantity</th>
@@ -315,6 +400,7 @@ onMounted(async () => {
             <tbody>
               <tr v-for="order in ordersStore.orders" :key="order.id">
                 <td class="text-mono font-medium text-xs">{{ order.id.substring(0, 8) }}...</td>
+                <td v-if="isAdmin || isBroker" class="text-sm">{{ getCustomerName(order.customerId) }}</td>
                 <td class="font-semibold">{{ order.assetName }}</td>
                 <td>
                   <span
@@ -484,7 +570,7 @@ onMounted(async () => {
 
             <!-- Price -->
             <div class="flex flex-col gap-2">
-              <label class="kt-form-label">Price (USD) <span class="text-danger">*</span></label>
+              <label class="kt-form-label">Price (TRY) <span class="text-danger">*</span></label>
               <input
                 type="number"
                 v-model.number="orderForm.price"
@@ -496,12 +582,47 @@ onMounted(async () => {
               />
             </div>
 
+            <!-- Available Balance -->
+            <div v-if="orderForm.customerId && !loadingAssets" class="rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4 space-y-2">
+              <div class="flex justify-between items-center">
+                <span class="text-secondary-foreground text-sm">Available TRY:</span>
+                <span class="font-semibold" :class="orderForm.orderSide === 'BUY' && !isBalanceSufficient ? 'text-danger' : 'text-success'">
+                  {{ formatPrice(availableTry) }}
+                </span>
+              </div>
+              <div v-if="orderForm.orderSide === 'SELL' && orderForm.assetName" class="flex justify-between items-center">
+                <span class="text-secondary-foreground text-sm">Available {{ orderForm.assetName }}:</span>
+                <span class="font-semibold" :class="!isBalanceSufficient ? 'text-danger' : 'text-success'">
+                  {{ availableAsset.toLocaleString('tr-TR') }}
+                </span>
+              </div>
+            </div>
+            <div v-else-if="loadingAssets" class="rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-4">
+              <div class="flex items-center gap-2 text-secondary-foreground">
+                <i class="ki-filled ki-loading animate-spin"></i>
+                <span class="text-sm">Loading balance...</span>
+              </div>
+            </div>
+
             <!-- Total -->
-            <div class="rounded-lg bg-primary/5 border border-primary/20 p-4">
+            <div class="rounded-lg p-4" :class="isBalanceSufficient ? 'bg-primary/5 border border-primary/20' : 'bg-danger/5 border border-danger/20'">
               <div class="flex justify-between items-center">
                 <span class="text-secondary-foreground font-medium">Total Value:</span>
-                <span class="text-xl font-bold text-primary">{{ formatPrice(orderForm.size * orderForm.price) }}</span>
+                <span class="text-xl font-bold" :class="isBalanceSufficient ? 'text-primary' : 'text-danger'">
+                  {{ formatPrice(orderForm.size * orderForm.price) }}
+                </span>
               </div>
+            </div>
+
+            <!-- Insufficient Balance Warning -->
+            <div v-if="orderForm.customerId && !loadingAssets && !isBalanceSufficient && orderForm.size > 0 && orderForm.price > 0" class="kt-alert kt-alert-warning">
+              <i class="ki-filled ki-information-2 me-2"></i>
+              <span v-if="orderForm.orderSide === 'BUY'">
+                Insufficient TRY balance. Need {{ formatPrice(orderForm.size * orderForm.price) }}, available {{ formatPrice(availableTry) }}.
+              </span>
+              <span v-else>
+                Insufficient {{ orderForm.assetName }} balance. Need {{ orderForm.size }}, available {{ availableAsset }}.
+              </span>
             </div>
 
             <!-- Error Message -->

@@ -150,7 +150,7 @@ public class KafkaEventFlowTest extends BaseIntegrationTest {
                     .anyMatch(event ->
                             event.contains(orderId) ||
                             event.contains("OrderCancelled") ||
-                            event.contains("CANCELLED")
+                            event.contains("CANCELED")
                     );
 
             // Note: Assertion based on actual implementation
@@ -242,7 +242,7 @@ public class KafkaEventFlowTest extends BaseIntegrationTest {
                         Response getResponse = getOrder(orderId);
                         String status = getResponse.jsonPath().getString("data.status");
                         // Accept any terminal state
-                        return "CANCELLED".equals(status) ||
+                        return "CANCELED".equals(status) ||
                                "MATCHED".equals(status) ||
                                "REJECTED".equals(status) ||
                                "ORDER_CONFIRMED".equals(status);
@@ -318,7 +318,7 @@ public class KafkaEventFlowTest extends BaseIntegrationTest {
                             String status = getResponse.jsonPath().getString("data.status");
                             return "REJECTED".equals(status) ||
                                    "FAILED".equals(status) ||
-                                   "CANCELLED".equals(status);
+                                   "CANCELED".equals(status);
                         });
 
                 // Verify order was rejected
@@ -328,7 +328,7 @@ public class KafkaEventFlowTest extends BaseIntegrationTest {
                 assertTrue(
                         finalStatus.equals("REJECTED") ||
                         finalStatus.equals("FAILED") ||
-                        finalStatus.equals("CANCELLED"),
+                        finalStatus.equals("CANCELED"),
                         "Order should be rejected due to insufficient balance"
                 );
             }

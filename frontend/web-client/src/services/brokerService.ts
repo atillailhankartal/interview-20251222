@@ -46,11 +46,10 @@ export const brokerService = {
    */
   async getBrokerCustomers(brokerId: string, page = 0, size = 20): Promise<ApiResponse<PaginatedResponse<Customer>>> {
     const params = new URLSearchParams()
-    params.append('brokerId', brokerId)
     params.append('page', page.toString())
     params.append('size', size.toString())
 
-    const response = await api.get<ApiResponse<PaginatedResponse<Customer>>>(`/broker-customers/${brokerId}?${params.toString()}`)
+    const response = await api.get<ApiResponse<PaginatedResponse<Customer>>>(`/customers/broker/${brokerId}/customers?${params.toString()}`)
     return response.data
   }
 }

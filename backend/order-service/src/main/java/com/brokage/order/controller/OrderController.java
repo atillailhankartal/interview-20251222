@@ -252,10 +252,10 @@ public class OrderController {
     }
 
     /**
-     * Get order statistics for dashboard (ADMIN only now)
+     * Get order statistics for dashboard
      */
     @GetMapping("/stats")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BROKER')")
     public ResponseEntity<ApiResponse<OrderStatsDTO>> getOrderStats() {
         OrderStatsDTO stats = orderService.getOrderStats();
         return ResponseEntity.ok(ApiResponse.success(stats));

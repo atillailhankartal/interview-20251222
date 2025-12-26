@@ -68,6 +68,8 @@ logging:
 services:
   customer-service:
     url: http://localhost:8083
+  asset-service:
+    url: http://localhost:8082
 
 ---
 spring:
@@ -126,6 +128,8 @@ management:
 services:
   customer-service:
     url: http://customer-service:8083
+  asset-service:
+    url: http://asset-service:8082
 
 ---
 spring:
@@ -150,3 +154,5 @@ spring:
 services:
   customer-service:
     url: http://localhost:8083
+  asset-service:
+    url: http://localhost:8082

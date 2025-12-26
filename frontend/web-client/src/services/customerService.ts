@@ -142,6 +142,18 @@ export const customerService = {
 
     const response = await api.get<ApiResponse<PaginatedResponse<Customer>>>(`/customers/broker/${brokerId}/customers/for-order?${params.toString()}`)
     return response.data
+  },
+
+  /**
+   * Get all brokers assigned to a customer (Many-to-Many relationship)
+   */
+  async getCustomerBrokers(customerId: string, page = 0, size = 20): Promise<ApiResponse<PaginatedResponse<Customer>>> {
+    const params = new URLSearchParams()
+    params.append('page', page.toString())
+    params.append('size', size.toString())
+
+    const response = await api.get<ApiResponse<PaginatedResponse<Customer>>>(`/customers/customer/${customerId}/brokers?${params.toString()}`)
+    return response.data
   }
 }
 

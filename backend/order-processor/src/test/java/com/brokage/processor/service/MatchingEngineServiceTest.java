@@ -211,7 +211,7 @@ class MatchingEngineServiceTest {
             matchingEngineService.cancelOrder(orderId, "User requested");
 
             // Then
-            assertThat(queueEntry.getStatus()).isEqualTo(MatchingQueue.QueueStatus.CANCELLED);
+            assertThat(queueEntry.getStatus()).isEqualTo(MatchingQueue.QueueStatus.CANCELED);
             verify(matchingQueueRepository).save(queueEntry);
         }
 

@@ -405,7 +405,11 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4318/v1/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: order-service
+      OTEL_RESOURCE_ATTRIBUTES: service.name=order-service,service.namespace=brokage,deployment.environment=docker
       LOKI_URL: http://lgtm:3100
     ports:
       - "7081:8081"
@@ -445,7 +449,11 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4318/v1/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: asset-service
+      OTEL_RESOURCE_ATTRIBUTES: service.name=asset-service,service.namespace=brokage,deployment.environment=docker
       LOKI_URL: http://lgtm:3100
     ports:
       - "7082:8082"
@@ -472,8 +480,8 @@ services:
   # Customer Service - Customer management
   customer-service:
     build:
-      context: ../backend/customer-service
-      dockerfile: Dockerfile
+      context: ../backend
+      dockerfile: customer-service/Dockerfile
     container_name: brokage-customer-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
@@ -485,7 +493,11 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4318/v1/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: customer-service
+      OTEL_RESOURCE_ATTRIBUTES: service.name=customer-service,service.namespace=brokage,deployment.environment=docker
       LOKI_URL: http://lgtm:3100
     ports:
       - "7083:8083"
@@ -527,7 +539,11 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4318/v1/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: order-processor
+      OTEL_RESOURCE_ATTRIBUTES: service.name=order-processor,service.namespace=brokage,deployment.environment=docker
       LOKI_URL: http://lgtm:3100
     ports:
       - "7084:8084"
@@ -560,7 +576,11 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4318/v1/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: notification-service
+      OTEL_RESOURCE_ATTRIBUTES: service.name=notification-service,service.namespace=brokage,deployment.environment=docker
       LOKI_URL: http://lgtm:3100
       # Email Configuration (Mailpit - internal port is 1025)
       SPRING_MAIL_HOST: mailpit
@@ -606,7 +626,12 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/brokage
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4318/v1/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: audit-service
+      OTEL_RESOURCE_ATTRIBUTES: service.name=audit-service,service.namespace=brokage,deployment.environment=docker
       LOKI_URL: http://lgtm:3100
     ports:
       - "7086:8086"
@@ -642,12 +667,17 @@ services:
       SPRING_DATA_REDIS_PASSWORD: brokage123
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/brokage/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8180/realms/brokage
       ORDER_SERVICE_URL: http://order-service:8081
       ASSET_SERVICE_URL: http://asset-service:8082
       CUSTOMER_SERVICE_URL: http://customer-service:8083
       NOTIFICATION_SERVICE_URL: http://notification-service:8085
       AUDIT_SERVICE_URL: http://audit-service:8086
-      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4317
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://lgtm:4318/v1/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_SERVICE_NAME: web-api
+      OTEL_RESOURCE_ATTRIBUTES: service.name=web-api,service.namespace=brokage,deployment.environment=docker
       LOKI_URL: http://lgtm:3100
     ports:
       - "7087:8087"

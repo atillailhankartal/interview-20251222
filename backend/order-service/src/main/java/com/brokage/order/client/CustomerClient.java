@@ -83,6 +83,40 @@ public class CustomerClient {
     }
 
     /**
+     * Get customer full name.
+     * Uses internal endpoint (no authentication required for service-to-service calls).
+     */
+    public String getCustomerName(UUID customerId) {
+        try {
+            // Use internal endpoint for service-to-service communication
+            String url = customerServiceUrl + "/internal/customers/" + customerId;
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+
+            if (response == null) {
+                return null;
+            }
+
+            String firstName = (String) response.get("firstName");
+            String lastName = (String) response.get("lastName");
+
+            if (firstName != null && lastName != null) {
+                return firstName + " " + lastName;
+            } else if (firstName != null) {
+                return firstName;
+            } else if (lastName != null) {
+                return lastName;
+            }
+
+            return null;
+        } catch (Exception e) {
+            log.error("Error getting customer {} name: {}", customerId, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Get all customer IDs for a broker.
      */
     @SuppressWarnings("unchecked")

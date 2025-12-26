@@ -4,8 +4,12 @@ import { useRoute } from 'vue-router'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import NotificationDropdown from '@/components/NotificationDropdown.vue'
+import { useOrderNotifications } from '@/composables/useOrderNotifications'
 
 const authStore = useAuthStore()
+
+// Initialize SSE notifications for real-time order updates
+useOrderNotifications()
 const { user } = storeToRefs(authStore)
 const route = useRoute()
 const showUserMenu = ref(false)

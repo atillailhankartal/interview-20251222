@@ -67,7 +67,7 @@ public class MatchingQueue extends BaseEntity {
         ACTIVE,
         PARTIALLY_MATCHED,
         FULLY_MATCHED,
-        CANCELLED,
+        CANCELED,
         EXPIRED
     }
 
@@ -86,7 +86,7 @@ public class MatchingQueue extends BaseEntity {
     }
 
     public void cancel(String reason) {
-        this.status = QueueStatus.CANCELLED;
+        this.status = QueueStatus.CANCELED;
         this.removedAt = LocalDateTime.now();
         this.removeReason = reason;
     }

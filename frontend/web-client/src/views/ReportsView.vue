@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useCustomersStore } from '@/stores/customers'
 import {
   reportsService,
   type TradingSummaryReport,
@@ -10,9 +11,11 @@ import {
 } from '@/services'
 
 const authStore = useAuthStore()
+const customersStore = useCustomersStore()
 const loading = ref(true)
 const error = ref<string | null>(null)
 const activeTab = ref('trading')
+const selectedBrokerId = ref<string>('')
 
 // Report data
 const tradingSummary = ref<TradingSummaryReport | null>(null)
@@ -30,6 +33,9 @@ const transactionSize = ref(20)
 const isAdmin = computed(() => authStore.hasRole('ADMIN'))
 const isBroker = computed(() => authStore.hasRole('BROKER'))
 const isCustomer = computed(() => authStore.hasRole('CUSTOMER'))
+
+// Get brokers list from customers store
+const brokers = computed(() => customersStore.customers.filter(c => c.role === 'BROKER'))
 
 // Available tabs based on role
 const tabs = computed(() => {
@@ -53,7 +59,7 @@ async function loadTradingSummary() {
   try {
     const response = await reportsService.getDailyTradingSummary(selectedDate.value)
     if (response.success && response.data) {
-      tradingSummary.value = response.data
+      tradingSummary.value = response.data.data as TradingSummaryReport
     }
   } catch (err) {
     console.error('Failed to load trading summary:', err)
@@ -64,7 +70,7 @@ async function loadPortfolioReport() {
   try {
     const response = await reportsService.getPortfolioReport()
     if (response.success && response.data) {
-      portfolioReport.value = response.data
+      portfolioReport.value = response.data.data as CustomerPortfolioReport
     }
   } catch (err) {
     console.error('Failed to load portfolio report:', err)
@@ -79,7 +85,8 @@ async function loadTransactionHistory() {
       transactionSize.value
     )
     if (response.success && response.data) {
-      transactionHistory.value = response.data
+      // API returns ReportDTO with data property containing TransactionHistoryReport
+      transactionHistory.value = (response.data as any).data as TransactionHistoryReport
     }
   } catch (err) {
     console.error('Failed to load transaction history:', err)
@@ -91,12 +98,16 @@ async function loadBrokerPerformance() {
     let response
     if (isBroker.value) {
       response = await reportsService.getMyPerformanceReport(startDate.value, endDate.value)
-    } else if (isAdmin.value) {
-      // Admin can see all brokers - for now show aggregate
-      response = await reportsService.getBrokerPerformanceReport(undefined as any, startDate.value, endDate.value)
+    } else if (isAdmin.value && selectedBrokerId.value) {
+      // Admin must select a broker first
+      response = await reportsService.getBrokerPerformanceReport(selectedBrokerId.value, startDate.value, endDate.value)
+    } else {
+      // No broker selected yet
+      brokerPerformance.value = null
+      return
     }
     if (response?.success && response.data) {
-      brokerPerformance.value = response.data
+      brokerPerformance.value = response.data.data as BrokerPerformanceReport
     }
   } catch (err) {
     console.error('Failed to load broker performance:', err)
@@ -174,10 +185,13 @@ function nextPage() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Set default tab based on role
   if (isAdmin.value) {
     activeTab.value = 'trading'
+    // Fetch brokers for broker performance report
+    customersStore.setFilter('role', 'BROKER')
+    await customersStore.fetchCustomers()
   } else {
     activeTab.value = 'portfolio'
   }
@@ -261,7 +275,7 @@ onMounted(() => {
           />
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
           <div class="p-4 rounded-lg border border-border">
             <span class="text-sm text-secondary-foreground">Total Volume</span>
             <div class="text-xl font-semibold text-mono mt-1">{{ formatCurrency(tradingSummary.totalVolume) }}</div>
@@ -281,7 +295,7 @@ onMounted(() => {
         </div>
 
         <!-- Asset Breakdown -->
-        <div v-if="tradingSummary.assetBreakdown?.length">
+        <div v-if="tradingSummary.assetSummaries && Object.keys(tradingSummary.assetSummaries).length">
           <h3 class="text-sm font-medium text-mono mb-3">Asset Breakdown</h3>
           <div class="overflow-x-auto">
             <table class="kt-table kt-table-border align-middle text-secondary-foreground text-sm w-full">
@@ -294,11 +308,11 @@ onMounted(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="asset in tradingSummary.assetBreakdown" :key="asset.symbol">
-                  <td><span class="kt-badge kt-badge-sm kt-badge-primary">{{ asset.symbol }}</span></td>
-                  <td class="text-end">{{ formatCurrency(asset.volume) }}</td>
+                <tr v-for="(asset, key) in tradingSummary.assetSummaries" :key="key">
+                  <td><span class="kt-badge kt-badge-sm kt-badge-primary">{{ asset.assetSymbol }}</span></td>
+                  <td class="text-end">{{ formatCurrency(asset.totalVolume) }}</td>
                   <td class="text-end">{{ formatNumber(asset.orderCount) }}</td>
-                  <td class="text-end">{{ formatCurrency(asset.avgPrice) }}</td>
+                  <td class="text-end">{{ formatCurrency(asset.averagePrice) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -308,21 +322,18 @@ onMounted(() => {
 
       <!-- Portfolio Tab -->
       <div v-else-if="activeTab === 'portfolio' && portfolioReport" class="p-5 space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="grid grid-cols-3 gap-5">
           <div class="p-4 rounded-lg border border-border">
-            <span class="text-sm text-secondary-foreground">Total Value</span>
-            <div class="text-xl font-semibold text-mono mt-1">{{ formatCurrency(portfolioReport.totalValue) }}</div>
+            <span class="text-sm text-secondary-foreground">Total Portfolio Value</span>
+            <div class="text-xl font-semibold text-mono mt-1">{{ formatCurrency(portfolioReport.totalPortfolioValue) }}</div>
           </div>
           <div class="p-4 rounded-lg border border-border">
-            <span class="text-sm text-secondary-foreground">Total Cost</span>
-            <div class="text-xl font-semibold text-mono mt-1">{{ formatCurrency(portfolioReport.totalCost) }}</div>
+            <span class="text-sm text-secondary-foreground">TRY Balance</span>
+            <div class="text-xl font-semibold text-mono mt-1">{{ formatCurrency(portfolioReport.tryBalance) }}</div>
           </div>
           <div class="p-4 rounded-lg border border-border">
-            <span class="text-sm text-secondary-foreground">Total P&L</span>
-            <div class="text-xl font-semibold mt-1" :class="portfolioReport.totalPnL >= 0 ? 'text-green-600' : 'text-red-600'">
-              {{ formatCurrency(portfolioReport.totalPnL) }}
-              <span class="text-sm">{{ formatPercent(portfolioReport.pnlPercent) }}</span>
-            </div>
+            <span class="text-sm text-secondary-foreground">TRY Usable</span>
+            <div class="text-xl font-semibold text-green-600 mt-1">{{ formatCurrency(portfolioReport.tryUsable) }}</div>
           </div>
         </div>
 
@@ -334,22 +345,22 @@ onMounted(() => {
               <thead>
                 <tr class="text-mono">
                   <th class="text-start">Asset</th>
-                  <th class="text-end">Quantity</th>
-                  <th class="text-end">Avg Cost</th>
+                  <th class="text-end">Total Qty</th>
+                  <th class="text-end">Usable Qty</th>
                   <th class="text-end">Current Price</th>
-                  <th class="text-end">Value</th>
-                  <th class="text-end">P&L</th>
+                  <th class="text-end">Market Value</th>
+                  <th class="text-end">Unrealized P&L</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="holding in portfolioReport.holdings" :key="holding.symbol">
-                  <td><span class="kt-badge kt-badge-sm kt-badge-primary">{{ holding.symbol }}</span></td>
+                <tr v-for="holding in portfolioReport.holdings" :key="holding.assetSymbol">
+                  <td><span class="kt-badge kt-badge-sm kt-badge-primary">{{ holding.assetSymbol }}</span></td>
                   <td class="text-end">{{ formatNumber(holding.quantity) }}</td>
-                  <td class="text-end">{{ formatCurrency(holding.avgCost) }}</td>
+                  <td class="text-end">{{ formatNumber(holding.usableQuantity) }}</td>
                   <td class="text-end">{{ formatCurrency(holding.currentPrice) }}</td>
-                  <td class="text-end text-mono">{{ formatCurrency(holding.value) }}</td>
-                  <td class="text-end" :class="holding.pnl >= 0 ? 'text-green-600' : 'text-red-600'">
-                    {{ formatCurrency(holding.pnl) }}
+                  <td class="text-end text-mono">{{ formatCurrency(holding.marketValue) }}</td>
+                  <td class="text-end" :class="holding.unrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'">
+                    {{ formatCurrency(holding.unrealizedPnL) }}
                   </td>
                 </tr>
               </tbody>
@@ -360,26 +371,30 @@ onMounted(() => {
         <!-- PnL Summary -->
         <div v-if="portfolioReport.pnlSummary">
           <h3 class="text-sm font-medium text-mono mb-3">P&L Summary</h3>
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="p-3 rounded-lg border border-border">
-              <span class="text-xs text-secondary-foreground">Realized P&L</span>
-              <div class="text-lg font-semibold mt-1" :class="portfolioReport.pnlSummary.realizedPnL >= 0 ? 'text-green-600' : 'text-red-600'">
-                {{ formatCurrency(portfolioReport.pnlSummary.realizedPnL) }}
+              <span class="text-xs text-secondary-foreground">Daily P&L</span>
+              <div class="text-lg font-semibold mt-1" :class="portfolioReport.pnlSummary.dailyPnL >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ formatCurrency(portfolioReport.pnlSummary.dailyPnL) }}
               </div>
             </div>
             <div class="p-3 rounded-lg border border-border">
-              <span class="text-xs text-secondary-foreground">Unrealized P&L</span>
-              <div class="text-lg font-semibold mt-1" :class="portfolioReport.pnlSummary.unrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'">
-                {{ formatCurrency(portfolioReport.pnlSummary.unrealizedPnL) }}
+              <span class="text-xs text-secondary-foreground">Weekly P&L</span>
+              <div class="text-lg font-semibold mt-1" :class="portfolioReport.pnlSummary.weeklyPnL >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ formatCurrency(portfolioReport.pnlSummary.weeklyPnL) }}
               </div>
             </div>
             <div class="p-3 rounded-lg border border-border">
-              <span class="text-xs text-secondary-foreground">Deposits</span>
-              <div class="text-lg font-semibold text-mono mt-1">{{ formatCurrency(portfolioReport.pnlSummary.totalDeposits) }}</div>
+              <span class="text-xs text-secondary-foreground">Total Realized P&L</span>
+              <div class="text-lg font-semibold mt-1" :class="portfolioReport.pnlSummary.totalRealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ formatCurrency(portfolioReport.pnlSummary.totalRealizedPnL) }}
+              </div>
             </div>
             <div class="p-3 rounded-lg border border-border">
-              <span class="text-xs text-secondary-foreground">Withdrawals</span>
-              <div class="text-lg font-semibold text-mono mt-1">{{ formatCurrency(portfolioReport.pnlSummary.totalWithdrawals) }}</div>
+              <span class="text-xs text-secondary-foreground">Total Unrealized P&L</span>
+              <div class="text-lg font-semibold mt-1" :class="portfolioReport.pnlSummary.totalUnrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'">
+                {{ formatCurrency(portfolioReport.pnlSummary.totalUnrealizedPnL) }}
+              </div>
             </div>
           </div>
         </div>
@@ -401,7 +416,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="tx in transactionHistory.transactions" :key="tx.id">
+              <tr v-for="tx in transactionHistory.transactions" :key="tx.transactionId">
                 <td class="text-mono text-xs">{{ formatDateTime(tx.timestamp) }}</td>
                 <td>
                   <span
@@ -415,8 +430,8 @@ onMounted(() => {
                     {{ tx.type }}
                   </span>
                 </td>
-                <td><span class="kt-badge kt-badge-sm kt-badge-primary">{{ tx.symbol }}</span></td>
-                <td class="text-end">{{ formatNumber(tx.quantity) }}</td>
+                <td><span class="kt-badge kt-badge-sm kt-badge-primary">{{ tx.assetSymbol }}</span></td>
+                <td class="text-end">{{ formatNumber(tx.amount) }}</td>
                 <td class="text-end">{{ formatCurrency(tx.price) }}</td>
                 <td class="text-end text-mono">{{ formatCurrency(tx.total) }}</td>
                 <td class="text-center">
@@ -425,7 +440,7 @@ onMounted(() => {
                     :class="{
                       'kt-badge-success': tx.status === 'COMPLETED' || tx.status === 'MATCHED',
                       'kt-badge-warning': tx.status === 'PENDING',
-                      'kt-badge-danger': tx.status === 'CANCELLED' || tx.status === 'FAILED'
+                      'kt-badge-danger': tx.status === 'CANCELED' || tx.status === 'FAILED'
                     }"
                   >
                     {{ tx.status }}
@@ -444,8 +459,8 @@ onMounted(() => {
         <!-- Pagination -->
         <div v-if="transactionHistory" class="flex items-center justify-between">
           <span class="text-sm text-secondary-foreground">
-            Page {{ transactionHistory.page + 1 }} of {{ transactionHistory.totalPages }}
-            ({{ formatNumber(transactionHistory.totalElements) }} total)
+            Page {{ (transactionHistory.page ?? 0) + 1 }} of {{ transactionHistory.totalPages ?? 1 }}
+            ({{ formatNumber(transactionHistory.totalElements ?? 0) }} total)
           </span>
           <div class="flex gap-2">
             <button
@@ -467,8 +482,22 @@ onMounted(() => {
       </div>
 
       <!-- Broker Performance Tab -->
-      <div v-else-if="activeTab === 'broker' && brokerPerformance" class="p-5 space-y-6">
+      <div v-else-if="activeTab === 'broker'" class="p-5 space-y-6">
         <div class="flex items-center gap-4 flex-wrap">
+          <!-- Broker selector for Admin -->
+          <div v-if="isAdmin" class="flex items-center gap-2">
+            <label class="text-sm text-secondary-foreground">Broker:</label>
+            <select
+              v-model="selectedBrokerId"
+              @change="loadBrokerPerformance"
+              class="kt-select kt-select-sm w-[200px]"
+            >
+              <option value="" disabled>Select a broker...</option>
+              <option v-for="broker in brokers" :key="broker.id" :value="broker.id">
+                {{ broker.firstName }} {{ broker.lastName }}
+              </option>
+            </select>
+          </div>
           <div class="flex items-center gap-2">
             <label class="text-sm text-secondary-foreground">From:</label>
             <input
@@ -485,44 +514,53 @@ onMounted(() => {
               class="kt-input kt-input-sm w-40"
             />
           </div>
-          <button class="kt-btn kt-btn-sm kt-btn-primary" @click="loadBrokerPerformance">
+          <button class="kt-btn kt-btn-sm kt-btn-primary" @click="loadBrokerPerformance" :disabled="isAdmin && !selectedBrokerId">
             Apply
           </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <!-- Show message if no broker selected (Admin only) -->
+        <div v-if="isAdmin && !selectedBrokerId" class="text-center py-10 text-secondary-foreground">
+          <i class="ki-filled ki-briefcase text-4xl mb-3"></i>
+          <p>Please select a broker to view performance report</p>
+        </div>
+
+        <template v-else-if="brokerPerformance">
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
           <div class="p-4 rounded-lg border border-border">
-            <span class="text-sm text-secondary-foreground">Total Customers</span>
-            <div class="text-xl font-semibold text-mono mt-1">{{ formatNumber(brokerPerformance.totalCustomers) }}</div>
+            <span class="text-sm text-secondary-foreground">Broker Name</span>
+            <div class="text-xl font-semibold text-mono mt-1">{{ brokerPerformance.brokerName || 'N/A' }}</div>
           </div>
           <div class="p-4 rounded-lg border border-border">
-            <span class="text-sm text-secondary-foreground">Active Customers</span>
-            <div class="text-xl font-semibold text-mono mt-1">{{ formatNumber(brokerPerformance.activeCustomers) }}</div>
+            <span class="text-sm text-secondary-foreground">Assigned Customers</span>
+            <div class="text-xl font-semibold text-mono mt-1">{{ formatNumber(brokerPerformance.assignedCustomers ?? 0) }}</div>
           </div>
           <div class="p-4 rounded-lg border border-border">
             <span class="text-sm text-secondary-foreground">Total Orders</span>
-            <div class="text-xl font-semibold text-mono mt-1">{{ formatNumber(brokerPerformance.totalOrders) }}</div>
+            <div class="text-xl font-semibold text-mono mt-1">{{ formatNumber(brokerPerformance.totalCustomerOrders ?? 0) }}</div>
           </div>
           <div class="p-4 rounded-lg border border-border">
             <span class="text-sm text-secondary-foreground">Total Volume</span>
-            <div class="text-xl font-semibold text-mono mt-1">{{ formatCurrency(brokerPerformance.totalVolume) }}</div>
+            <div class="text-xl font-semibold text-mono mt-1">{{ formatCurrency(brokerPerformance.totalCustomerVolume ?? 0) }}</div>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="grid grid-cols-3 gap-5">
           <div class="p-4 rounded-lg border border-border">
-            <span class="text-sm text-secondary-foreground">Match Rate</span>
-            <div class="text-xl font-semibold text-mono mt-1">{{ brokerPerformance.matchRate?.toFixed(1) }}%</div>
+            <span class="text-sm text-secondary-foreground">Active Customers</span>
+            <div class="text-xl font-semibold text-mono mt-1">{{ formatNumber(brokerPerformance.activeCustomers ?? 0) }}</div>
           </div>
           <div class="p-4 rounded-lg border border-border">
-            <span class="text-sm text-secondary-foreground">Avg Response Time</span>
-            <div class="text-xl font-semibold text-mono mt-1">{{ brokerPerformance.avgResponseTime || 0 }}ms</div>
+            <span class="text-sm text-secondary-foreground">Assets Under Management</span>
+            <div class="text-xl font-semibold text-mono mt-1">{{ formatCurrency(brokerPerformance.customerAssetsUnderManagement ?? 0) }}</div>
           </div>
           <div class="p-4 rounded-lg border border-border">
-            <span class="text-sm text-secondary-foreground">Commission Earned</span>
-            <div class="text-xl font-semibold text-green-600 mt-1">{{ formatCurrency(brokerPerformance.commissionEarned || 0) }}</div>
+            <span class="text-sm text-secondary-foreground">Report Period</span>
+            <div class="text-lg font-semibold text-mono mt-1">{{ brokerPerformance.startDate }} - {{ brokerPerformance.endDate }}</div>
           </div>
         </div>
+        </template>
       </div>
 
       <!-- Empty State -->

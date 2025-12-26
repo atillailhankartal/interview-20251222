@@ -233,8 +233,8 @@ test.describe('Admin Scenarios (PDF Requirements)', () => {
     // Confirm cancellation
     await page.click('button:has-text("Yes, Cancel")')
 
-    // Verify order is now CANCELLED
-    await expect(page.locator('text=CANCELLED').first()).toBeVisible({ timeout: 5000 })
+    // Verify order is now CANCELED
+    await expect(page.locator('text=CANCELED').first()).toBeVisible({ timeout: 5000 })
 
     console.log('✅ PASSED: PENDING order cancelled successfully')
   })

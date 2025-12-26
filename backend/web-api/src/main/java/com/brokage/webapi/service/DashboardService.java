@@ -26,18 +26,53 @@ public class DashboardService {
 
     public Mono<DashboardDTO> getDashboard(Authentication authentication, String token) {
         Jwt jwt = (Jwt) authentication.getPrincipal();
-        String userId = jwt.getSubject();
+        String keycloakUserId = jwt.getSubject();
         String username = jwt.getClaimAsString("preferred_username");
+        String email = jwt.getClaimAsString("email");
         String role = extractPrimaryRole(authentication);
 
-        log.info("Building dashboard for user: {} with role: {}", username, role);
+        log.info("Building dashboard for user: {} with role: {} and email: {}", username, role, email);
 
         return switch (role) {
-            case "ADMIN" -> buildAdminDashboard(userId, username, token);
-            case "BROKER" -> buildBrokerDashboard(userId, username, token);
-            case "CUSTOMER" -> buildCustomerDashboard(userId, username, token);
-            default -> buildCustomerDashboard(userId, username, token);
+            case "ADMIN" -> buildAdminDashboard(keycloakUserId, username, token);
+            case "BROKER" -> resolveUserIdByToken(token)
+                    .flatMap(brokerId -> buildBrokerDashboard(brokerId, username, token))
+                    .switchIfEmpty(Mono.defer(() -> {
+                        log.warn("Could not resolve broker ID for email: {}", email);
+                        return Mono.just(createEmptyDashboard("BROKER", keycloakUserId, username));
+                    }));
+            case "CUSTOMER" -> resolveUserIdByToken(token)
+                    .flatMap(customerId -> buildCustomerDashboard(customerId, username, token))
+                    .switchIfEmpty(Mono.defer(() -> buildCustomerDashboard(keycloakUserId, username, token)));
+            default -> buildCustomerDashboard(keycloakUserId, username, token);
         };
+    }
+
+    /**
+     * Resolve broker/customer ID by calling /api/customers/me endpoint
+     * This endpoint auto-links Keycloak users to database customers by email
+     */
+    @SuppressWarnings("unchecked")
+    private Mono<String> resolveUserIdByToken(String token) {
+        return customerServiceClient.get()
+                .uri("/api/customers/me")
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .map(response -> {
+                    Object dataObj = response.get("data");
+                    if (dataObj instanceof Map) {
+                        Map<String, Object> customer = (Map<String, Object>) dataObj;
+                        return (String) customer.get("id");
+                    }
+                    return null;
+                })
+                .filter(id -> id != null)
+                .doOnNext(id -> log.info("Resolved user to ID: {}", id))
+                .onErrorResume(e -> {
+                    log.error("Error resolving user ID from /api/customers/me", e);
+                    return Mono.empty();
+                });
     }
 
     private Mono<DashboardDTO> buildAdminDashboard(String userId, String username, String token) {
@@ -59,6 +94,8 @@ public class DashboardService {
             long totalBrokers = getLong(customerData, "totalBrokers");
             long activeUsers = getLong(customerData, "activeUsers");
 
+            List<TopTrader> topTraders = mapToTopTraders(orderData);
+
             return DashboardDTO.builder()
                     .role("ADMIN")
                     .userId(userId)
@@ -71,7 +108,7 @@ public class DashboardService {
                             .totalBrokers(totalBrokers)
                             .activeUsers(activeUsers)
                             .totalTradingVolume(orderStats.getTotalVolume())
-                            .topTraders(List.of()) // TODO: Implement top traders
+                            .topTraders(topTraders)
                             .recentOrders(recentOrders)
                             .systemHealth(systemHealth)
                             .build())
@@ -85,10 +122,14 @@ public class DashboardService {
     private Mono<DashboardDTO> buildBrokerDashboard(String userId, String username, String token) {
         return Mono.zip(
                 fetchOrderStatsForBroker(userId, token),
-                fetchBrokerAssetStats(userId, token)
+                fetchBrokerAssetStats(userId, token),
+                fetchBrokerCustomers(userId, token),
+                fetchBrokerCustomerOrders(userId, token)
         ).map(tuple -> {
             OrderStats orderStats = tuple.getT1();
             AssetStats assetStats = tuple.getT2();
+            BrokerCustomerData customerData = tuple.getT3();
+            List<RecentOrder> customerOrders = tuple.getT4();
 
             return DashboardDTO.builder()
                     .role("BROKER")
@@ -98,17 +139,101 @@ public class DashboardService {
                     .orderStats(orderStats)
                     .assetStats(assetStats)
                     .brokerData(BrokerDashboard.builder()
-                            .assignedCustomers(0L)
-                            .activeCustomers(0L)
-                            .customersPortfolioValue(BigDecimal.ZERO)
-                            .customerList(List.of())
-                            .customerOrders(List.of())
+                            .assignedCustomers(customerData.assignedCustomers())
+                            .activeCustomers(customerData.activeCustomers())
+                            .customersPortfolioValue(customerData.portfolioValue())
+                            .customerList(customerData.customers())
+                            .customerOrders(customerOrders)
                             .build())
                     .build();
         }).onErrorResume(e -> {
             log.error("Error building broker dashboard", e);
             return Mono.just(createEmptyDashboard("BROKER", userId, username));
         });
+    }
+
+    private record BrokerCustomerData(long assignedCustomers, long activeCustomers, BigDecimal portfolioValue, List<CustomerSummary> customers) {}
+
+    @SuppressWarnings("unchecked")
+    private Mono<BrokerCustomerData> fetchBrokerCustomers(String brokerId, String token) {
+        return customerServiceClient.get()
+                .uri("/api/customers/broker/" + brokerId + "/customers")
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .map(response -> {
+                    Object dataObj = response.get("data");
+                    List<Map<String, Object>> customers = List.of();
+                    if (dataObj instanceof Map) {
+                        Map<String, Object> pageData = (Map<String, Object>) dataObj;
+                        Object content = pageData.get("content");
+                        if (content instanceof List) {
+                            customers = (List<Map<String, Object>>) content;
+                        }
+                    } else if (dataObj instanceof List) {
+                        customers = (List<Map<String, Object>>) dataObj;
+                    }
+
+                    List<CustomerSummary> customerList = customers.stream()
+                            .limit(10)
+                            .map(c -> CustomerSummary.builder()
+                                    .customerId((String) c.get("id"))
+                                    .name(c.get("firstName") + " " + c.get("lastName"))
+                                    .email((String) c.get("email"))
+                                    .orderCount(0L)
+                                    .portfolioValue(BigDecimal.ZERO)
+                                    .build())
+                            .toList();
+
+                    return new BrokerCustomerData(
+                            customers.size(),
+                            customers.stream().filter(c -> "ACTIVE".equals(c.get("status"))).count(),
+                            BigDecimal.ZERO,
+                            customerList
+                    );
+                })
+                .onErrorReturn(new BrokerCustomerData(0, 0, BigDecimal.ZERO, List.of()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Mono<List<RecentOrder>> fetchBrokerCustomerOrders(String brokerId, String token) {
+        return orderServiceClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/orders")
+                        .queryParam("brokerId", brokerId)
+                        .queryParam("size", 10)
+                        .build())
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .map(response -> {
+                    Object dataObj = response.get("data");
+                    List<Map<String, Object>> orders = List.of();
+                    if (dataObj instanceof Map) {
+                        Map<String, Object> pageData = (Map<String, Object>) dataObj;
+                        Object content = pageData.get("content");
+                        if (content instanceof List) {
+                            orders = (List<Map<String, Object>>) content;
+                        }
+                    } else if (dataObj instanceof List) {
+                        orders = (List<Map<String, Object>>) dataObj;
+                    }
+
+                    return orders.stream()
+                            .map(o -> RecentOrder.builder()
+                                    .id((String) o.get("id"))
+                                    .customerId((String) o.get("customerId"))
+                                    .assetName((String) o.get("assetSymbol"))
+                                    .orderSide((String) o.get("orderSide"))
+                                    .size(getBigDecimal(o, "size"))
+                                    .price(getBigDecimal(o, "price"))
+                                    .status((String) o.get("status"))
+                                    .createdAt(parseDateTime(o.get("createdAt")))
+                                    .build())
+                            .limit(10)
+                            .toList();
+                })
+                .onErrorReturn(List.of());
     }
 
     private Mono<DashboardDTO> buildCustomerDashboard(String userId, String username, String token) {
@@ -289,15 +414,35 @@ public class DashboardService {
                     .filter(o -> o instanceof Map)
                     .map(o -> (Map<String, Object>) o)
                     .map(order -> RecentOrder.builder()
-                            .orderId((String) order.get("id"))
+                            .id((String) order.get("id"))
                             .customerId((String) order.get("customerId"))
                             .assetName((String) order.get("assetName"))
-                            .side((String) order.get("orderSide"))
+                            .orderSide((String) order.get("orderSide"))
                             .size(getBigDecimal(order, "size"))
                             .price(getBigDecimal(order, "price"))
                             .status((String) order.get("status"))
+                            .createdAt(parseDateTime(order.get("createdAt")))
                             .build())
                     .limit(10)
+                    .toList();
+        }
+        return List.of();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<TopTrader> mapToTopTraders(Map<String, Object> data) {
+        Object topTradersObj = data.get("topTraders");
+        if (topTradersObj instanceof List<?> traderList) {
+            return traderList.stream()
+                    .filter(o -> o instanceof Map)
+                    .map(o -> (Map<String, Object>) o)
+                    .map(trader -> TopTrader.builder()
+                            .customerId((String) trader.get("customerId"))
+                            .customerName((String) trader.get("customerName"))
+                            .orderCount(getLong(trader, "orderCount"))
+                            .tradingVolume(getBigDecimal(trader, "tradingVolume"))
+                            .build())
+                    .limit(5)
                     .toList();
         }
         return List.of();
@@ -397,5 +542,20 @@ public class DashboardService {
             return BigDecimal.valueOf(((Number) value).doubleValue());
         }
         return BigDecimal.ZERO;
+    }
+
+    private LocalDateTime parseDateTime(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String dateStr) {
+            try {
+                return LocalDateTime.parse(dateStr.replace(" ", "T"));
+            } catch (Exception e) {
+                log.debug("Failed to parse date: {}", dateStr);
+                return null;
+            }
+        }
+        return null;
     }
 }

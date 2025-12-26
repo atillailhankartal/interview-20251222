@@ -33,19 +33,10 @@ public class OutboxPublisher {
                 String key = event.getAggregateId().toString();
                 String value = event.getPayload();
 
-                kafkaTemplate.send(ORDER_EVENTS_TOPIC, key, value)
-                        .whenComplete((result, ex) -> {
-                            if (ex != null) {
-                                log.error("Failed to send event {} to Kafka: {}", event.getId(), ex.getMessage());
-                            } else {
-                                log.debug("Event {} sent to Kafka, partition: {}, offset: {}",
-                                        event.getId(),
-                                        result.getRecordMetadata().partition(),
-                                        result.getRecordMetadata().offset());
-                            }
-                        });
+                // Use blocking .get() to ensure message is sent before marking as processed
+                kafkaTemplate.send(ORDER_EVENTS_TOPIC, key, value).get();
 
-                // Mark as processed
+                // Mark as processed only after successful send
                 event.markAsProcessed();
                 outboxEventRepository.save(event);
 

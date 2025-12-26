@@ -7,6 +7,6 @@ public enum OrderStatus {
     MATCHED,
     PARTIALLY_FILLED,
     FILLED,
-    CANCELLED,
+    CANCELED,
     REJECTED
 }

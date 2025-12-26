@@ -338,10 +338,10 @@ public class PdfScenariosIntegrationTest extends BaseIntegrationTest {
         cancelResponse.then()
                 .statusCode(200);
 
-        // Verify order status is CANCELLED
+        // Verify order status is CANCELED
         Response getResponse = getOrder(orderToCancel);
         getResponse.then()
-                .body("data.status", equalTo("CANCELLED"));
+                .body("data.status", equalTo("CANCELED"));
 
         // PDF Requirement: usableSize should be restored
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {

@@ -4,6 +4,7 @@ import com.brokage.common.enums.OrderStatus;
 import com.brokage.common.enums.OrderType;
 import com.brokage.common.exception.BusinessException;
 import com.brokage.common.exception.ResourceNotFoundException;
+import com.brokage.order.client.AssetClient;
 import com.brokage.order.client.CustomerClient;
 import com.brokage.order.context.RequestContext;
 import com.brokage.order.dto.CreateOrderRequest;
@@ -40,13 +41,18 @@ public class OrderService {
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
     private final CustomerClient customerClient;
+    private final AssetClient assetClient;
 
     private static final String TOPIC_ORDER_CREATED = "order.created";
-    private static final String TOPIC_ORDER_CANCELLED = "order.cancelled";
+    private static final String TOPIC_ORDER_CANCELED = "order.canceled";
     private static final String TOPIC_ORDER_MATCHED = "order.matched";
 
+    private static final String TRY_ASSET = "TRY";
+
     /**
-     * Create a new order with idempotency support
+     * Create a new order with SYNC balance validation (PDF compliant).
+     * Balance is checked and reserved BEFORE order is created.
+     * If balance is insufficient, order is NOT created (400 Bad Request).
      */
     @Transactional
     public OrderDTO createOrder(CreateOrderRequest request) {
@@ -72,25 +78,56 @@ public class OrderService {
             }
         }
 
-        // Create order entity
-        Order order = Order.builder()
-                .customerId(request.getCustomerId())
-                .assetName(request.getAssetName().toUpperCase())
-                .orderSide(request.getOrderSide())
-                .orderType(request.getOrderType() != null ? request.getOrderType() : OrderType.LIMIT)
-                .size(request.getSize())
-                .price(request.getPrice())
-                .status(OrderStatus.PENDING)
-                .idempotencyKey(request.getIdempotencyKey())
-                .build();
+        // Calculate total value for BUY orders
+        BigDecimal totalValue = request.getPrice().multiply(request.getSize());
 
-        Order savedOrder = orderRepository.saveAndFlush(order);
-        log.info("Order created with ID: {}, createdAt: {}", savedOrder.getId(), savedOrder.getCreatedAt());
+        // SYNC Balance validation and reservation (PDF requirement)
+        // BUY: Check and reserve TRY (total value)
+        // SELL: Check and reserve the asset (size)
+        String reserveAsset;
+        BigDecimal reserveAmount;
 
-        // Create outbox event for async processing
-        createOutboxEvent(savedOrder, TOPIC_ORDER_CREATED, "OrderCreatedEvent");
+        if (request.getOrderSide() == com.brokage.common.enums.OrderSide.BUY) {
+            reserveAsset = TRY_ASSET;
+            reserveAmount = totalValue;
+            log.info("BUY order: Reserving {} TRY for customer {}", totalValue, request.getCustomerId());
+        } else {
+            reserveAsset = request.getAssetName().toUpperCase();
+            reserveAmount = request.getSize();
+            log.info("SELL order: Reserving {} {} for customer {}", request.getSize(), reserveAsset, request.getCustomerId());
+        }
 
-        return toDTO(savedOrder);
+        // This will throw BusinessException if balance is insufficient
+        assetClient.reserveAsset(request.getCustomerId(), reserveAsset, reserveAmount, null);
+
+        // Balance reserved successfully, now create the order
+        Order order;
+        try {
+            order = Order.builder()
+                    .customerId(request.getCustomerId())
+                    .assetName(request.getAssetName().toUpperCase())
+                    .orderSide(request.getOrderSide())
+                    .orderType(request.getOrderType() != null ? request.getOrderType() : OrderType.LIMIT)
+                    .size(request.getSize())
+                    .price(request.getPrice())
+                    .status(OrderStatus.PENDING)
+                    .idempotencyKey(request.getIdempotencyKey())
+                    .build();
+
+            order = orderRepository.saveAndFlush(order);
+            log.info("Order created with ID: {}, createdAt: {}", order.getId(), order.getCreatedAt());
+
+        } catch (Exception e) {
+            // Order creation failed after asset reservation - COMPENSATE
+            log.error("Order creation failed after asset reservation, releasing: {}", e.getMessage());
+            assetClient.releaseAsset(request.getCustomerId(), reserveAsset, reserveAmount);
+            throw e;
+        }
+
+        // Create outbox event for async processing (saga continuation)
+        createOutboxEvent(order, TOPIC_ORDER_CREATED, "OrderCreatedEvent");
+
+        return toDTO(order);
     }
 
     /**
@@ -201,14 +238,14 @@ public class OrderService {
                     String.format("Order cannot be cancelled. Current status: %s", order.getStatus()));
         }
 
-        order.setStatus(OrderStatus.CANCELLED);
+        order.setStatus(OrderStatus.CANCELED);
         order.setCancelledAt(LocalDateTime.now());
 
         Order savedOrder = orderRepository.save(order);
-        log.info("Order cancelled: {}", orderId);
+        log.info("Order canceled: {}", orderId);
 
         // Create outbox event for async processing (release blocked assets)
-        createOutboxEvent(savedOrder, TOPIC_ORDER_CANCELLED, "OrderCancelledEvent");
+        createOutboxEvent(savedOrder, TOPIC_ORDER_CANCELED, "OrderCanceledEvent");
 
         return toDTO(savedOrder);
     }
@@ -230,14 +267,14 @@ public class OrderService {
                     String.format("Order cannot be cancelled. Current status: %s", order.getStatus()));
         }
 
-        order.setStatus(OrderStatus.CANCELLED);
+        order.setStatus(OrderStatus.CANCELED);
         order.setCancelledAt(LocalDateTime.now());
 
         Order savedOrder = orderRepository.save(order);
-        log.info("Order cancelled by customer: {}", orderId);
+        log.info("Order canceled by customer: {}", orderId);
 
         // Create outbox event
-        createOutboxEvent(savedOrder, TOPIC_ORDER_CANCELLED, "OrderCancelledEvent");
+        createOutboxEvent(savedOrder, TOPIC_ORDER_CANCELED, "OrderCanceledEvent");
 
         return toDTO(savedOrder);
     }
@@ -282,7 +319,7 @@ public class OrderService {
         OrderStatus oldStatus = order.getStatus();
 
         // Allow status transitions
-        if (oldStatus == OrderStatus.CANCELLED || oldStatus == OrderStatus.MATCHED ||
+        if (oldStatus == OrderStatus.CANCELED || oldStatus == OrderStatus.MATCHED ||
             oldStatus == OrderStatus.FILLED) {
             log.warn("Cannot update order {} status from {} - order is in terminal state", orderId, oldStatus);
             return;
@@ -394,12 +431,28 @@ public class OrderService {
     public OrderStatsDTO getOrderStats() {
         long pendingOrders = orderRepository.countByStatus(OrderStatus.PENDING);
         long matchedOrders = orderRepository.countByStatus(OrderStatus.MATCHED);
-        long cancelledOrders = orderRepository.countByStatus(OrderStatus.CANCELLED);
+        long cancelledOrders = orderRepository.countByStatus(OrderStatus.CANCELED);
         long totalOrders = orderRepository.countAllOrders();
         BigDecimal totalVolume = orderRepository.calculateTotalTradingVolume();
 
         List<Order> recentOrders = orderRepository.findRecentOrders(PageRequest.of(0, 10));
         List<OrderDTO> recentOrderDTOs = recentOrders.stream().map(this::toDTO).toList();
+
+        // Get top traders (customers with most matched order volume)
+        List<OrderRepository.TopTraderProjection> topTraderProjections =
+                orderRepository.findTopTraders(OrderStatus.MATCHED, PageRequest.of(0, 5));
+
+        List<OrderStatsDTO.TopTraderDTO> topTraders = topTraderProjections.stream()
+                .map(projection -> {
+                    String customerName = customerClient.getCustomerName(projection.getCustomerId());
+                    return OrderStatsDTO.TopTraderDTO.builder()
+                            .customerId(projection.getCustomerId())
+                            .customerName(customerName != null ? customerName : "Unknown")
+                            .orderCount(projection.getOrderCount())
+                            .tradingVolume(projection.getTradingVolume())
+                            .build();
+                })
+                .toList();
 
         return OrderStatsDTO.builder()
                 .pendingOrders(pendingOrders)
@@ -408,6 +461,7 @@ public class OrderService {
                 .totalOrders(totalOrders)
                 .totalVolume(totalVolume != null ? totalVolume : BigDecimal.ZERO)
                 .recentOrders(recentOrderDTOs)
+                .topTraders(topTraders)
                 .build();
     }
 }

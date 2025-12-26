@@ -26,9 +26,12 @@ const filteredAssets = computed(() => {
 })
 
 // Format helpers
-function formatPrice(price: number | null, currency = '$'): string {
+function formatPrice(price: number | null): string {
   if (price === null || price === undefined) return '-'
-  return `${currency}${price.toFixed(2)}`
+  return new Intl.NumberFormat('tr-TR', {
+    style: 'currency',
+    currency: 'TRY'
+  }).format(price)
 }
 
 function formatChange(change: number | null): string {

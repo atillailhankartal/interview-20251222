@@ -111,10 +111,10 @@ public class NotificationStreamService {
                         customerId,
                         event
                 );
-                case "OrderCancelled" -> createNotification(
-                        "ORDER_CANCELLED",
-                        "Order Cancelled",
-                        "Your order has been cancelled",
+                case "OrderCanceled" -> createNotification(
+                        "ORDER_CANCELED",
+                        "Order Canceled",
+                        "Your order has been canceled",
                         "WARNING",
                         customerId,
                         event

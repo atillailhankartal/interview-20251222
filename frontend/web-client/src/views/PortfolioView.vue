@@ -103,7 +103,7 @@ onMounted(async () => {
     await customersStore.fetchOrderableCustomers()
     // Select first customer if available
     if (customersStore.orderableCustomers.length > 0) {
-      selectedCustomerId.value = customersStore.orderableCustomers[0].id
+      selectedCustomerId.value = customersStore.orderableCustomers[0]?.id ?? ''
       await assetsStore.fetchAssets(selectedCustomerId.value)
     }
   } else {
@@ -166,27 +166,74 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- TRY Balance Card -->
-    <div class="kt-card">
-      <div class="kt-card-content p-6">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div class="flex items-center gap-4">
-            <div class="flex items-center justify-center size-14 rounded-xl bg-green-500/10">
-              <i class="ki-filled ki-dollar text-green-500 text-2xl"></i>
+    <!-- TRY Balance Card (Enhanced) -->
+    <div class="kt-card bg-gradient-to-br from-green-500/5 via-green-500/10 to-primary/5 border-green-500/20">
+      <div class="kt-card-content p-8">
+        <div class="grid md:grid-cols-2 gap-8">
+          <!-- Left: Main Balance Display -->
+          <div>
+            <div class="flex items-center gap-4 mb-6">
+              <div class="flex items-center justify-center size-16 rounded-2xl bg-gradient-to-br from-green-500/20 to-green-500/30 shadow-lg shadow-green-500/10">
+                <span class="text-3xl font-bold text-green-600">₺</span>
+              </div>
+              <div>
+                <h2 class="text-xl font-semibold text-mono">TRY Cash Balance</h2>
+                <p class="text-sm text-secondary-foreground">Turkish Lira</p>
+              </div>
             </div>
-            <div>
-              <div class="text-sm text-secondary-foreground">TRY Balance</div>
-              <div class="text-2xl font-bold text-mono">{{ formatCurrency(assetsStore.tryBalance) }}</div>
+
+            <div class="text-4xl font-bold text-mono mb-2">
+              {{ formatCurrency(assetsStore.tryBalance) }}
+            </div>
+            <p class="text-sm text-secondary-foreground">Total balance (size)</p>
+
+            <!-- Progress bar -->
+            <div class="mt-6">
+              <div class="flex justify-between text-xs mb-2">
+                <span class="text-green-600 font-medium">Available: {{ formatCurrency(assetsStore.tryUsable) }}</span>
+                <span class="text-orange-500 font-medium">Blocked: {{ formatCurrency(assetsStore.tryBlocked) }}</span>
+              </div>
+              <div class="h-3 bg-orange-500/30 rounded-full overflow-hidden">
+                <div
+                  class="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full transition-all duration-500"
+                  :style="{ width: `${assetsStore.tryBalance > 0 ? (assetsStore.tryUsable / assetsStore.tryBalance) * 100 : 100}%` }"
+                ></div>
+              </div>
             </div>
           </div>
-          <div class="flex gap-6">
-            <div class="text-center">
-              <div class="text-xs text-secondary-foreground">Available (usableSize)</div>
-              <div class="text-lg font-semibold text-green-600">{{ formatCurrency(assetsStore.tryUsable) }}</div>
+
+          <!-- Right: Balance Breakdown -->
+          <div class="grid grid-cols-2 gap-4 content-center">
+            <!-- Available Balance -->
+            <div class="p-5 rounded-xl bg-green-500/10 border border-green-500/20">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="size-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                  <i class="ki-filled ki-check-circle text-green-500"></i>
+                </div>
+                <div>
+                  <div class="text-xs text-secondary-foreground">Available for Trading</div>
+                  <div class="text-sm text-green-600">usableSize</div>
+                </div>
+              </div>
+              <div class="text-2xl font-bold text-green-600">
+                {{ formatCurrency(assetsStore.tryUsable) }}
+              </div>
             </div>
-            <div class="text-center">
-              <div class="text-xs text-secondary-foreground">Blocked (orders)</div>
-              <div class="text-lg font-semibold text-yellow-600">{{ formatCurrency(assetsStore.tryBlocked) }}</div>
+
+            <!-- Blocked Balance -->
+            <div class="p-5 rounded-xl bg-orange-500/10 border border-orange-500/20">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="size-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                  <i class="ki-filled ki-lock text-orange-500"></i>
+                </div>
+                <div>
+                  <div class="text-xs text-secondary-foreground">Reserved for Orders</div>
+                  <div class="text-sm text-orange-500">blockedSize</div>
+                </div>
+              </div>
+              <div class="text-2xl font-bold text-orange-500">
+                {{ formatCurrency(assetsStore.tryBlocked) }}
+              </div>
             </div>
           </div>
         </div>

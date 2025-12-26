@@ -27,7 +27,7 @@ public class NotificationDTO {
     public enum NotificationType {
         ORDER_CREATED,
         ORDER_MATCHED,
-        ORDER_CANCELLED,
+        ORDER_CANCELED,
         ORDER_FAILED,
         DEPOSIT_COMPLETED,
         WITHDRAWAL_COMPLETED,

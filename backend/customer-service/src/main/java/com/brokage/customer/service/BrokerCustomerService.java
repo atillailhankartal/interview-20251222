@@ -181,6 +181,61 @@ public class BrokerCustomerService {
     }
 
     /**
+     * Get all customers for a broker with optional search (for order creation)
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<CustomerDTO> getBrokerCustomersForOrder(UUID brokerId, String search, int page, int size) {
+        log.debug("Getting orderable customers for broker: {}, search: {}, page: {}, size: {}", brokerId, search, page, size);
+
+        // Verify broker exists
+        Customer broker = customerRepository.findById(brokerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Broker", brokerId.toString()));
+
+        if (broker.getRole() != CustomerRole.BROKER) {
+            throw new BusinessException("User is not a broker");
+        }
+
+        // Get all customer IDs for this broker
+        List<UUID> customerIds = brokerCustomerRepository.findCustomerIdsByBrokerId(brokerId);
+
+        if (customerIds.isEmpty()) {
+            return PageResponse.<CustomerDTO>builder()
+                    .content(List.of())
+                    .pageNumber(page)
+                    .pageSize(size)
+                    .totalElements(0)
+                    .totalPages(0)
+                    .first(true)
+                    .last(true)
+                    .build();
+        }
+
+        // Get customers with optional search filter
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "lastName", "firstName"));
+        Page<Customer> customerPage;
+
+        if (search != null && !search.isBlank()) {
+            customerPage = customerRepository.findByIdInAndSearchAndOrderable(customerIds, search.toLowerCase(), pageable);
+        } else {
+            customerPage = customerRepository.findByIdInAndOrderableTrue(customerIds, pageable);
+        }
+
+        List<CustomerDTO> customers = customerPage.getContent().stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+
+        return PageResponse.<CustomerDTO>builder()
+                .content(customers)
+                .pageNumber(customerPage.getNumber())
+                .pageSize(customerPage.getSize())
+                .totalElements(customerPage.getTotalElements())
+                .totalPages(customerPage.getTotalPages())
+                .first(customerPage.isFirst())
+                .last(customerPage.isLast())
+                .build();
+    }
+
+    /**
      * Remove a customer from a broker
      */
     @Transactional

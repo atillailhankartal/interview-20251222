@@ -1,6 +1,7 @@
 package com.brokage.asset.controller;
 
 import com.brokage.asset.client.CustomerClient;
+import com.brokage.asset.dto.AssetStatsDTO;
 import com.brokage.asset.dto.CustomerAssetDTO;
 import com.brokage.asset.dto.DepositWithdrawRequest;
 import com.brokage.asset.service.AssetService;
@@ -110,6 +111,17 @@ public class AssetController {
         log.debug("Getting all TRY balances for admin dashboard");
         List<CustomerAssetDTO> balances = assetService.getAllTryBalances();
         return ResponseEntity.ok(ApiResponse.success(balances));
+    }
+
+    /**
+     * Get asset statistics for analytics dashboard
+     */
+    @GetMapping("/stats")
+    @PreAuthorize("hasAnyRole('ADMIN', 'BROKER')")
+    public ResponseEntity<ApiResponse<AssetStatsDTO>> getAssetStats() {
+        log.debug("Getting asset statistics for analytics");
+        AssetStatsDTO stats = assetService.getStats();
+        return ResponseEntity.ok(ApiResponse.success(stats));
     }
 
     private UUID resolveCustomerId(UUID requestedCustomerId, Jwt jwt) {

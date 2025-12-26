@@ -74,6 +74,12 @@ export interface TransactionHistoryReport {
   totalDeposits: number
   totalWithdrawals: number
   netFlow: number
+  // Pagination properties
+  page?: number
+  totalPages?: number
+  totalElements?: number
+  first?: boolean
+  last?: boolean
 }
 
 export interface TransactionRecord {
@@ -99,6 +105,13 @@ export interface BrokerPerformanceReport {
   totalCustomerOrders: number
   customerAssetsUnderManagement: number
   topCustomers: CustomerSummary[]
+  // Additional metrics
+  totalCustomers?: number
+  totalOrders?: number
+  totalVolume?: number
+  matchRate?: number
+  avgResponseTime?: number
+  commissionEarned?: number
 }
 
 export interface CustomerSummary {
@@ -139,14 +152,14 @@ export const reportsService = {
    */
   async getTransactionHistory(
     customerId?: string,
-    startDate?: string,
-    endDate?: string
-  ): Promise<ApiResponse<ReportDTO>> {
-    const params: Record<string, string> = {}
+    page?: number,
+    size?: number
+  ): Promise<ApiResponse<TransactionHistoryReport>> {
+    const params: Record<string, string | number> = {}
     if (customerId) params.customerId = customerId
-    if (startDate) params.startDate = startDate
-    if (endDate) params.endDate = endDate
-    const response = await api.get<ReportDTO>('/reports/transactions', { params })
+    if (page !== undefined) params.page = page
+    if (size !== undefined) params.size = size
+    const response = await api.get<TransactionHistoryReport>('/reports/transactions', { params })
     return { success: true, data: response.data }
   },
 

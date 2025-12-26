@@ -1,3 +1,23 @@
+# Build stage - using Gradle image with Gradle pre-installed
+FROM gradle:8.5-jdk17 AS builder
+
+WORKDIR /build
+
+# Copy gradle config
+COPY build.gradle.kts ./
+COPY settings.gradle.kts ./
+COPY gradle.properties ./
+
+# Copy common module
+COPY common ./common
+
+# Copy customer-service
+COPY customer-service ./customer-service
+
+# Build
+RUN gradle :customer-service:bootJar -x test --no-daemon
+
+# Runtime stage
 FROM eclipse-temurin:17-jre
 
 LABEL maintainer="brokage-team"
@@ -7,7 +27,7 @@ WORKDIR /app
 
 RUN groupadd -r spring && useradd -r -g spring spring
 
-COPY build/libs/*-SNAPSHOT.jar app.jar
+COPY --from=builder /build/customer-service/build/libs/*-SNAPSHOT.jar app.jar
 
 RUN chown -R spring:spring /app
 

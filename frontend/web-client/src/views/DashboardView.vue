@@ -4,8 +4,10 @@ import { useAuthStore } from '@/stores/auth'
 import {
   dashboardService,
   notificationStreamService,
+  assetService,
   type DashboardDTO,
-  type NotificationDTO
+  type NotificationDTO,
+  type CustomerAsset
 } from '@/services'
 
 const authStore = useAuthStore()
@@ -14,6 +16,7 @@ const dashboard = ref<DashboardDTO | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const notifications = ref<NotificationDTO[]>([])
+const customerAssets = ref<CustomerAsset[]>([])
 
 // Computed
 const userRole = computed(() => {
@@ -24,6 +27,24 @@ const userRole = computed(() => {
 const isAdmin = computed(() => authStore.hasRole('ADMIN'))
 const isBroker = computed(() => authStore.hasRole('BROKER'))
 const isCustomer = computed(() => !isAdmin.value && !isBroker.value)
+
+// Customer portfolio computed
+const tryBalance = computed(() => {
+  const tryAsset = customerAssets.value.find(a => a.assetName === 'TRY')
+  return tryAsset ?? null
+})
+
+const stockAssets = computed(() => {
+  return customerAssets.value.filter(a => a.assetName !== 'TRY')
+})
+
+const totalStockValue = computed(() => {
+  return stockAssets.value.reduce((sum, asset) => sum + (asset.marketValue ?? 0), 0)
+})
+
+const totalPortfolioValue = computed(() => {
+  return (tryBalance.value?.size ?? 0) + totalStockValue.value
+})
 
 // Format helpers
 const formatCurrency = (value: number | undefined | null) => {
@@ -74,7 +95,6 @@ const statusBadgeClass = (status: string) => {
     ORDER_CONFIRMED: 'kt-badge-info',
     MATCHED: 'kt-badge-success',
     PARTIALLY_FILLED: 'kt-badge-primary',
-    CANCELLED: 'kt-badge-secondary',
     CANCELED: 'kt-badge-secondary',
     REJECTED: 'kt-badge-danger',
     FAILED: 'kt-badge-danger',
@@ -124,6 +144,19 @@ async function fetchDashboard() {
   }
 }
 
+// Fetch customer assets for portfolio widget
+async function fetchCustomerAssets() {
+  if (!isCustomer.value) return
+  try {
+    const response = await assetService.getCustomerAssets()
+    if (response.success && response.data) {
+      customerAssets.value = response.data
+    }
+  } catch (e) {
+    console.error('Failed to fetch customer assets:', e)
+  }
+}
+
 // Notification handler
 function handleNotification(notification: NotificationDTO) {
   if (notification.type !== 'HEARTBEAT') {
@@ -137,6 +170,7 @@ function handleNotification(notification: NotificationDTO) {
 // Lifecycle
 onMounted(async () => {
   await fetchDashboard()
+  await fetchCustomerAssets()
   notificationStreamService.connect()
   notificationStreamService.subscribeAll(handleNotification)
 })
@@ -441,17 +475,17 @@ onUnmounted(() => {
             </div>
             <div class="kt-card-content p-0">
               <div v-if="dashboard.adminData?.recentOrders?.length" class="divide-y divide-border">
-                <div v-for="order in dashboard.adminData.recentOrders.slice(0, 5)" :key="order.orderId"
+                <div v-for="order in dashboard.adminData.recentOrders.slice(0, 5)" :key="order.id"
                      class="flex items-center gap-4 p-4 hover:bg-accent/50 transition-colors">
                   <div class="size-10 rounded-lg flex items-center justify-center"
-                       :class="order.side === 'BUY' ? 'bg-green-500/10' : 'bg-red-500/10'">
-                    <i :class="['ki-filled text-lg', order.side === 'BUY' ? 'ki-arrow-down text-green-500' : 'ki-arrow-up text-red-500']"></i>
+                       :class="order.orderSide === 'BUY' ? 'bg-green-500/10' : 'bg-red-500/10'">
+                    <i :class="['ki-filled text-lg', order.orderSide === 'BUY' ? 'ki-arrow-down text-green-500' : 'ki-arrow-up text-red-500']"></i>
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
                       <span class="font-medium text-mono">{{ order.assetName }}</span>
-                      <span class="kt-badge kt-badge-sm" :class="order.side === 'BUY' ? 'kt-badge-success' : 'kt-badge-danger'">
-                        {{ order.side }}
+                      <span class="kt-badge kt-badge-sm" :class="order.orderSide === 'BUY' ? 'kt-badge-success' : 'kt-badge-danger'">
+                        {{ order.orderSide }}
                       </span>
                     </div>
                     <div class="text-xs text-secondary-foreground">
@@ -590,10 +624,10 @@ onUnmounted(() => {
                 <div v-for="customer in dashboard.brokerData.customerList.slice(0, 5)" :key="customer.customerId"
                      class="flex items-center gap-4 p-4 hover:bg-accent/50 transition-colors">
                   <div class="size-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
-                    {{ customer.name?.charAt(0) || '?' }}
+                    {{ customer.customerName?.charAt(0) || '?' }}
                   </div>
                   <div class="flex-1 min-w-0">
-                    <div class="font-medium text-mono truncate">{{ customer.name }}</div>
+                    <div class="font-medium text-mono truncate">{{ customer.customerName }}</div>
                     <div class="text-xs text-secondary-foreground">{{ formatNumber(customer.orderCount) }} orders</div>
                   </div>
                   <div class="text-right">
@@ -614,17 +648,17 @@ onUnmounted(() => {
             </div>
             <div class="kt-card-content p-0">
               <div v-if="dashboard.brokerData?.customerOrders?.length" class="divide-y divide-border">
-                <div v-for="order in dashboard.brokerData.customerOrders.slice(0, 5)" :key="order.orderId"
+                <div v-for="order in dashboard.brokerData.customerOrders.slice(0, 5)" :key="order.id"
                      class="flex items-center gap-4 p-4">
                   <div class="size-10 rounded-lg flex items-center justify-center"
-                       :class="order.side === 'BUY' ? 'bg-green-500/10' : 'bg-red-500/10'">
-                    <i :class="['ki-filled', order.side === 'BUY' ? 'ki-arrow-down text-green-500' : 'ki-arrow-up text-red-500']"></i>
+                       :class="order.orderSide === 'BUY' ? 'bg-green-500/10' : 'bg-red-500/10'">
+                    <i :class="['ki-filled', order.orderSide === 'BUY' ? 'ki-arrow-down text-green-500' : 'ki-arrow-up text-red-500']"></i>
                   </div>
                   <div class="flex-1">
                     <div class="flex items-center gap-2">
                       <span class="font-medium text-mono">{{ order.assetName }}</span>
-                      <span class="kt-badge kt-badge-sm" :class="order.side === 'BUY' ? 'kt-badge-success' : 'kt-badge-danger'">
-                        {{ order.side }}
+                      <span class="kt-badge kt-badge-sm" :class="order.orderSide === 'BUY' ? 'kt-badge-success' : 'kt-badge-danger'">
+                        {{ order.orderSide }}
                       </span>
                     </div>
                     <div class="text-xs text-secondary-foreground">{{ formatNumber(order.size) }} @ {{ formatCurrencyFull(order.price) }}</div>
@@ -657,6 +691,113 @@ onUnmounted(() => {
                   <i class="ki-filled ki-wallet me-2"></i>
                   Portfolio
                 </RouterLink>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Portfolio Summary Widget -->
+        <div class="grid md:grid-cols-3 gap-5">
+          <!-- TRY Balance Card (Prominent) -->
+          <div class="md:col-span-2 kt-card bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <div class="kt-card-content p-6">
+              <div class="flex items-start justify-between mb-4">
+                <div class="flex items-center gap-3">
+                  <div class="size-14 rounded-xl bg-primary/20 flex items-center justify-center">
+                    <span class="text-2xl font-bold text-primary">₺</span>
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-semibold text-mono">TRY Balance</h3>
+                    <p class="text-sm text-secondary-foreground">Your cash balance</p>
+                  </div>
+                </div>
+                <RouterLink to="/portfolio" class="kt-btn kt-btn-sm kt-btn-ghost text-primary">
+                  Manage
+                  <i class="ki-filled ki-right text-xs ms-1"></i>
+                </RouterLink>
+              </div>
+
+              <div class="grid grid-cols-2 gap-6">
+                <!-- Available Balance -->
+                <div>
+                  <div class="text-sm text-secondary-foreground mb-1">Available</div>
+                  <div class="text-3xl font-bold text-green-600">
+                    {{ formatCurrencyFull(tryBalance?.usableSize ?? 0) }}
+                  </div>
+                  <div class="text-xs text-secondary-foreground mt-1">Ready for trading</div>
+                </div>
+
+                <!-- Blocked Balance -->
+                <div>
+                  <div class="text-sm text-secondary-foreground mb-1">In Orders</div>
+                  <div class="text-2xl font-semibold text-orange-500">
+                    {{ formatCurrencyFull(tryBalance?.blockedSize ?? 0) }}
+                  </div>
+                  <div class="text-xs text-secondary-foreground mt-1">Reserved for pending orders</div>
+                </div>
+              </div>
+
+              <!-- Total Bar -->
+              <div class="mt-5 pt-4 border-t border-primary/20">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-secondary-foreground">Total TRY</span>
+                  <span class="text-lg font-bold text-mono">{{ formatCurrencyFull(tryBalance?.size ?? 0) }}</span>
+                </div>
+                <!-- Progress bar showing available vs blocked -->
+                <div class="h-2 bg-orange-500/30 rounded-full mt-2 overflow-hidden">
+                  <div
+                    class="h-full bg-green-500 rounded-full transition-all"
+                    :style="{ width: `${tryBalance?.size ? ((tryBalance.usableSize / tryBalance.size) * 100) : 100}%` }"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Portfolio Summary Card -->
+          <div class="kt-card">
+            <div class="kt-card-content p-6">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="size-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                  <i class="ki-filled ki-chart-pie text-cyan-500 text-xl"></i>
+                </div>
+                <div>
+                  <h3 class="font-semibold text-mono">Portfolio</h3>
+                  <p class="text-xs text-secondary-foreground">Total value</p>
+                </div>
+              </div>
+
+              <div class="text-3xl font-bold text-mono mb-4">
+                {{ formatCurrencyFull(totalPortfolioValue) }}
+              </div>
+
+              <div class="space-y-3">
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-secondary-foreground flex items-center gap-2">
+                    <span class="size-2 rounded-full bg-primary"></span>
+                    TRY Cash
+                  </span>
+                  <span class="font-medium text-mono">{{ formatCurrency(tryBalance?.size ?? 0) }}</span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-secondary-foreground flex items-center gap-2">
+                    <span class="size-2 rounded-full bg-cyan-500"></span>
+                    Stocks ({{ stockAssets.length }})
+                  </span>
+                  <span class="font-medium text-mono">{{ formatCurrency(totalStockValue) }}</span>
+                </div>
+              </div>
+
+              <!-- Distribution bar -->
+              <div class="h-2 rounded-full mt-4 overflow-hidden flex">
+                <div
+                  class="h-full bg-primary transition-all"
+                  :style="{ width: `${totalPortfolioValue ? ((tryBalance?.size ?? 0) / totalPortfolioValue * 100) : 50}%` }"
+                ></div>
+                <div
+                  class="h-full bg-cyan-500 transition-all"
+                  :style="{ width: `${totalPortfolioValue ? (totalStockValue / totalPortfolioValue * 100) : 50}%` }"
+                ></div>
               </div>
             </div>
           </div>
@@ -737,16 +878,16 @@ onUnmounted(() => {
             </div>
             <div class="kt-card-content p-0">
               <div v-if="dashboard.customerData?.myOrders?.length" class="divide-y divide-border">
-                <div v-for="order in dashboard.customerData.myOrders.slice(0, 5)" :key="order.orderId"
+                <div v-for="order in dashboard.customerData.myOrders.slice(0, 5)" :key="order.id"
                      class="flex items-center gap-4 p-4">
                   <div class="size-10 rounded-lg flex items-center justify-center"
-                       :class="order.side === 'BUY' ? 'bg-green-500/10' : 'bg-red-500/10'">
-                    <i :class="['ki-filled', order.side === 'BUY' ? 'ki-arrow-down text-green-500' : 'ki-arrow-up text-red-500']"></i>
+                       :class="order.orderSide === 'BUY' ? 'bg-green-500/10' : 'bg-red-500/10'">
+                    <i :class="['ki-filled', order.orderSide === 'BUY' ? 'ki-arrow-down text-green-500' : 'ki-arrow-up text-red-500']"></i>
                   </div>
                   <div class="flex-1">
                     <div class="flex items-center gap-2">
                       <span class="font-medium text-mono">{{ order.assetName }}</span>
-                      <span class="kt-badge kt-badge-sm" :class="order.side === 'BUY' ? 'kt-badge-success' : 'kt-badge-danger'">{{ order.side }}</span>
+                      <span class="kt-badge kt-badge-sm" :class="order.orderSide === 'BUY' ? 'kt-badge-success' : 'kt-badge-danger'">{{ order.orderSide }}</span>
                     </div>
                     <div class="text-xs text-secondary-foreground">{{ formatNumber(order.size) }} @ {{ formatCurrencyFull(order.price) }}</div>
                   </div>

@@ -184,7 +184,7 @@ public class OrderFlowIntegrationTest extends BaseIntegrationTest {
             // Verify status changed
             Response getResponse = getOrder(orderId);
             getResponse.then()
-                    .body("data.status", equalTo("CANCELLED"));
+                    .body("data.status", equalTo("CANCELED"));
         }
 
         @Test
@@ -317,13 +317,13 @@ public class OrderFlowIntegrationTest extends BaseIntegrationTest {
                     .contentType("application/json")
                     .header("Authorization", "Bearer " + authToken)
                     .queryParam("customerId", TEST_CUSTOMER_ID)
-                    .queryParam("status", "CANCELLED")
+                    .queryParam("status", "CANCELED")
                     .when()
                     .get(orderServiceUrl + "/api/orders");
 
             response.then()
                     .statusCode(200)
-                    .body("data.content", everyItem(hasEntry("status", "CANCELLED")));
+                    .body("data.content", everyItem(hasEntry("status", "CANCELED")));
         }
     }
 }

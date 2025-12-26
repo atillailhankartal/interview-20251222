@@ -82,6 +82,33 @@ public class CustomerService {
         return toDTO(customer);
     }
 
+    /**
+     * Get customer by Keycloak user ID, or auto-link by email if not yet linked.
+     * This enables first-login auto-linking for seeded users.
+     */
+    @Transactional
+    public CustomerDTO getOrLinkCustomerByKeycloakUserId(String keycloakUserId, String email) {
+        // First try to find by Keycloak user ID
+        var byKeycloakId = customerRepository.findByKeycloakUserId(keycloakUserId);
+        if (byKeycloakId.isPresent()) {
+            return toDTO(byKeycloakId.get());
+        }
+
+        // Not found by Keycloak ID, try to find by email and auto-link
+        var byEmail = customerRepository.findByEmail(email);
+        if (byEmail.isPresent()) {
+            Customer customer = byEmail.get();
+            if (customer.getKeycloakUserId() == null) {
+                log.info("Auto-linking customer {} to Keycloak user {} by email match", customer.getId(), keycloakUserId);
+                customer.setKeycloakUserId(keycloakUserId);
+                customer = customerRepository.save(customer);
+            }
+            return toDTO(customer);
+        }
+
+        throw new ResourceNotFoundException("Customer with Keycloak ID " + keycloakUserId + " or email " + email + " not found");
+    }
+
     @Transactional
     public CustomerDTO updateCustomer(UUID customerId, UpdateCustomerRequest request) {
         log.info("Updating customer: {}", customerId);

@@ -102,4 +102,21 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
 
     @Query("SELECT o FROM Order o ORDER BY o.createdAt DESC")
     List<Order> findRecentOrders(Pageable pageable);
+
+    /**
+     * Find top traders by trading volume (matched orders)
+     * Returns customer ID with their order count and total trading volume
+     */
+    @Query("SELECT o.customerId as customerId, COUNT(o) as orderCount, " +
+           "COALESCE(SUM(o.size * o.price), 0) as tradingVolume " +
+           "FROM Order o WHERE o.status = :status " +
+           "GROUP BY o.customerId " +
+           "ORDER BY COALESCE(SUM(o.size * o.price), 0) DESC")
+    List<TopTraderProjection> findTopTraders(@Param("status") OrderStatus status, Pageable pageable);
+
+    interface TopTraderProjection {
+        UUID getCustomerId();
+        Long getOrderCount();
+        java.math.BigDecimal getTradingVolume();
+    }
 }

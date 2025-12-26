@@ -423,13 +423,13 @@ var auditLogs = [
     },
 
     // =========================================================================
-    // ORDER CANCELLED EVENTS
+    // ORDER CANCELED EVENTS
     // =========================================================================
     {
         eventId: generateUUID(),
         entityType: 'Order',
         entityId: orders.order9,
-        action: 'ORDER_CANCELLED',
+        action: 'ORDER_CANCELED',
         customerId: customers['agent.smith'].id,
         customerEmail: customers['agent.smith'].email,
         performedBy: customers['agent.smith'].id,
@@ -449,9 +449,9 @@ var auditLogs = [
             orderSide: 'BUY',
             size: 1000,
             price: 115,
-            status: 'CANCELLED'
+            status: 'CANCELED'
         },
-        changes: { status: { from: 'PENDING', to: 'CANCELLED' } },
+        changes: { status: { from: 'PENDING', to: 'CANCELED' } },
         ipAddress: '10.255.255.1',
         userAgent: 'Mozilla/5.0 (Matrix; Agent Program v1.0) AppleWebKit/537.36',
         requestId: generateUUID(),
@@ -466,7 +466,7 @@ var auditLogs = [
         eventId: generateUUID(),
         entityType: 'Order',
         entityId: orders.order10,
-        action: 'ORDER_CANCELLED',
+        action: 'ORDER_CANCELED',
         customerId: customers['draco.malfoy'].id,
         customerEmail: customers['draco.malfoy'].email,
         performedBy: customers['draco.malfoy'].id,
@@ -486,9 +486,9 @@ var auditLogs = [
             orderSide: 'SELL',
             size: 200,
             price: 42,
-            status: 'CANCELLED'
+            status: 'CANCELED'
         },
-        changes: { status: { from: 'PENDING', to: 'CANCELLED' } },
+        changes: { status: { from: 'PENDING', to: 'CANCELED' } },
         ipAddress: '192.168.7.77',
         userAgent: 'Mozilla/5.0 (Slytherin; Pure-blood Edition) AppleWebKit/537.36',
         requestId: generateUUID(),
@@ -887,16 +887,16 @@ var notifications = [
     },
 
     // =========================================================================
-    // ORDER CANCELLED NOTIFICATIONS
+    // ORDER CANCELED NOTIFICATIONS
     // =========================================================================
     {
         eventId: generateUUID(),
         customerId: customers['agent.smith'].id,
         customerEmail: customers['agent.smith'].email,
-        notificationType: 'ORDER_CANCELLED',
+        notificationType: 'ORDER_CANCELED',
         channel: 'EMAIL',
         recipient: customers['agent.smith'].email,
-        templateCode: 'ORDER_CANCELLED',
+        templateCode: 'ORDER_CANCELED',
         subject: 'Order Cancelled - BUY 1000 ASELS',
         body: 'Dear Agent Smith,\n\nYour order has been cancelled as requested.\n\nCancelled Order Details:\n- Asset: ASELS\n- Side: BUY\n- Quantity: 1,000\n- Price: 115.00 TRY\n- Reserved Amount: 115,000.00 TRY (Released)\n\nYour TRY balance has been restored.\n\nPurpose... changed.\n\nBest regards,\nBrokage Trading Platform',
         templateVariables: {
@@ -919,10 +919,10 @@ var notifications = [
         eventId: generateUUID(),
         customerId: customers['draco.malfoy'].id,
         customerEmail: customers['draco.malfoy'].email,
-        notificationType: 'ORDER_CANCELLED',
+        notificationType: 'ORDER_CANCELED',
         channel: 'EMAIL',
         recipient: customers['draco.malfoy'].email,
-        templateCode: 'ORDER_CANCELLED',
+        templateCode: 'ORDER_CANCELED',
         subject: 'Order Cancelled - SELL 200 GARAN',
         body: 'Dear Draco Malfoy,\n\nYour order has been cancelled as requested.\n\nCancelled Order Details:\n- Asset: GARAN\n- Side: SELL\n- Quantity: 200\n- Price: 42.00 TRY\n- Reserved Shares: 200 (Released)\n\nYour GARAN shares have been released back to your portfolio.\n\nFather will be informed of this decision.\n\nBest regards,\nBrokage Trading Platform',
         templateVariables: {
@@ -1229,7 +1229,7 @@ var notificationLogs = [
         eventId: generateUUID(),
         customerId: customers['agent.smith'].id,
         customerEmail: customers['agent.smith'].email,
-        notificationType: 'ORDER_CANCELLED',
+        notificationType: 'ORDER_CANCELED',
         channel: 'EMAIL',
         recipient: customers['agent.smith'].email,
         subject: 'Order Cancelled - BUY 1000 ASELS',

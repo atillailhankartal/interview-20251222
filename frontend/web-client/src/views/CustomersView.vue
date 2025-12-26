@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useCustomersStore } from '@/stores/customers'
 import { useAuthStore } from '@/stores/auth'
 import type { CreateCustomerRequest, UpdateCustomerRequest, CustomerTier, CustomerStatus } from '@/services'
 
+const router = useRouter()
 const customersStore = useCustomersStore()
 const authStore = useAuthStore()
+
+// Navigation
+function viewCustomerDetail(customerId: string) {
+  router.push({ name: 'customer-detail', params: { id: customerId } })
+}
 
 // Modal state
 const showCreateModal = ref(false)
@@ -178,7 +185,8 @@ const onSearchInput = (value: string) => {
 }
 
 onMounted(() => {
-  customersStore.fetchCustomers()
+  // Only show customers with CUSTOMER role (not BROKER or ADMIN)
+  customersStore.setFilter('role', 'CUSTOMER')
 })
 </script>
 
@@ -325,7 +333,12 @@ onMounted(() => {
                       {{ customer.firstName.charAt(0) }}{{ customer.lastName.charAt(0) }}
                     </div>
                     <div>
-                      <div class="font-medium text-mono">{{ customer.firstName }} {{ customer.lastName }}</div>
+                      <button
+                        @click="viewCustomerDetail(customer.id)"
+                        class="font-medium text-mono hover:text-primary hover:underline cursor-pointer text-left"
+                      >
+                        {{ customer.firstName }} {{ customer.lastName }}
+                      </button>
                       <div class="text-xs text-secondary-foreground">ID: {{ customer.id.substring(0, 8) }}...</div>
                     </div>
                   </div>
@@ -352,6 +365,13 @@ onMounted(() => {
                 <td class="text-secondary-foreground">{{ formatDate(customer.createdAt) }}</td>
                 <td>
                   <div class="flex items-center gap-1">
+                    <button
+                      @click="viewCustomerDetail(customer.id)"
+                      class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost text-primary"
+                      title="View Details"
+                    >
+                      <i class="ki-filled ki-eye text-lg"></i>
+                    </button>
                     <button
                       v-if="authStore.hasRole('ADMIN')"
                       @click="openEditModal(customer)"

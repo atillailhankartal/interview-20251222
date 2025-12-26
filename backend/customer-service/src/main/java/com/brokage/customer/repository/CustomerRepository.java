@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -76,4 +77,26 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
 
     @Query("SELECT COUNT(c) FROM Customer c WHERE c.status = 'ACTIVE'")
     long countActiveUsers();
+
+    /**
+     * Find orderable customers by IDs with search filter (for broker customer list)
+     */
+    @Query("SELECT c FROM Customer c WHERE c.id IN :customerIds AND c.role = 'CUSTOMER' AND " +
+            "(LOWER(c.firstName) LIKE CONCAT('%', :search, '%') OR " +
+            "LOWER(c.lastName) LIKE CONCAT('%', :search, '%') OR " +
+            "LOWER(c.email) LIKE CONCAT('%', :search, '%'))")
+    Page<Customer> findByIdInAndSearchAndOrderable(
+            @Param("customerIds") List<UUID> customerIds,
+            @Param("search") String search,
+            Pageable pageable
+    );
+
+    /**
+     * Find orderable customers by IDs (for broker customer list)
+     */
+    @Query("SELECT c FROM Customer c WHERE c.id IN :customerIds AND c.role = 'CUSTOMER'")
+    Page<Customer> findByIdInAndOrderableTrue(
+            @Param("customerIds") List<UUID> customerIds,
+            Pageable pageable
+    );
 }

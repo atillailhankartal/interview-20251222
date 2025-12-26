@@ -108,11 +108,11 @@ public class DashboardDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class RecentOrder {
-        private String orderId;
+        private String id;
         private String customerId;
         private String customerName;
         private String assetName;
-        private String side;
+        private String orderSide;
         private BigDecimal size;
         private BigDecimal price;
         private String status;

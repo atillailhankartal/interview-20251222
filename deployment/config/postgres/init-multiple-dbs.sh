@@ -69,6 +69,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "brokage" <<-'EOSQL
         notes VARCHAR(500),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        version BIGINT DEFAULT 0,
         UNIQUE(broker_id, customer_id)
     );
 
@@ -214,15 +215,20 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "brokage" <<-'EOSQL
 
     -- =========================================================================
     -- OUTBOX PATTERN (Single table for all services)
+    -- Matches OutboxEvent.java entity exactly
     -- =========================================================================
     CREATE TABLE IF NOT EXISTS outbox_events (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        aggregate_id UUID NOT NULL,
         aggregate_type VARCHAR(100) NOT NULL,
-        aggregate_id VARCHAR(255) NOT NULL,
         event_type VARCHAR(100) NOT NULL,
-        topic VARCHAR(100),
+        topic VARCHAR(255) NOT NULL,
         partition_key VARCHAR(255),
-        payload JSONB NOT NULL,
+        payload TEXT NOT NULL,
+        processed BOOLEAN NOT NULL DEFAULT FALSE,
+        processed_at TIMESTAMP,
+        retry_count INTEGER DEFAULT 0,
+        error_message VARCHAR(1000),
         trace_id VARCHAR(64),
         span_id VARCHAR(32),
         ip_address VARCHAR(45),
@@ -230,14 +236,12 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "brokage" <<-'EOSQL
         request_id VARCHAR(64),
         performed_by UUID,
         performed_by_role VARCHAR(50),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        processed_at TIMESTAMP,
-        status VARCHAR(20) DEFAULT 'PENDING'
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE INDEX IF NOT EXISTS idx_outbox_status ON outbox_events(status);
+    CREATE INDEX IF NOT EXISTS idx_outbox_processed ON outbox_events(processed);
     CREATE INDEX IF NOT EXISTS idx_outbox_created ON outbox_events(created_at);
-    CREATE INDEX IF NOT EXISTS idx_outbox_aggregate ON outbox_events(aggregate_type, aggregate_id);
+    CREATE INDEX IF NOT EXISTS idx_outbox_type ON outbox_events(event_type);
 
     -- Processed events for idempotency
     CREATE TABLE IF NOT EXISTS processed_events (

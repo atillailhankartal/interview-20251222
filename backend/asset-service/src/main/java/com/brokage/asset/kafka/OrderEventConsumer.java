@@ -39,7 +39,7 @@ public class OrderEventConsumer {
 
             switch (eventType) {
                 case "OrderCreatedEvent" -> handleOrderCreated(event);
-                case "OrderCancelledEvent" -> handleOrderCancelled(event);
+                case "OrderCanceledEvent" -> handleOrderCancelled(event);  // Note: American spelling
                 case "OrderMatchedEvent" -> handleOrderMatched(event);
                 default -> log.warn("Unknown event type: {}", eventType);
             }
@@ -53,9 +53,11 @@ public class OrderEventConsumer {
     }
 
     /**
-     * Handle OrderCreatedEvent - Reserve balance
-     * BUY order: Block TRY (totalValue)
-     * SELL order: Block asset (size)
+     * Handle OrderCreatedEvent - Asset already reserved SYNC by Order Service.
+     * This handler now just publishes AssetReservedEvent to continue the saga.
+     *
+     * Note: Balance is reserved synchronously in Order Service before order creation.
+     * This is PDF compliant: "While creating new order... usable size should be checked and updated"
      */
     private void handleOrderCreated(JsonNode event) {
         UUID customerId = UUID.fromString(event.get("customerId").asText());
@@ -70,26 +72,12 @@ public class OrderEventConsumer {
         log.info("Processing OrderCreatedEvent: orderId={}, customerId={}, side={}, asset={}, size={}, totalValue={}",
                 orderId, customerId, orderSide, assetName, size, totalValue);
 
-        try {
-            if ("BUY".equals(orderSide)) {
-                // BUY: Reserve TRY (money)
-                assetService.reserveAsset(customerId, TRY_ASSET, totalValue);
-                log.info("Reserved {} TRY for BUY order {}", totalValue, orderId);
-            } else if ("SELL".equals(orderSide)) {
-                // SELL: Reserve asset
-                assetService.reserveAsset(customerId, assetName, size);
-                log.info("Reserved {} {} for SELL order {}", size, assetName, orderId);
-            }
+        // Asset is already reserved synchronously by Order Service via /internal/assets/reserve
+        // Just publish AssetReservedEvent to continue the saga
+        log.info("Asset already reserved synchronously for order {}, publishing AssetReservedEvent", orderId);
 
-            // Publish AssetReservedEvent to order-events topic for saga to continue
-            publishAssetReservedEvent(orderId, customerId.toString(), assetName, orderSide,
-                    price.toString(), size.toString(), tierPriority);
-
-        } catch (Exception e) {
-            log.error("Failed to reserve balance for order {}: {}", orderId, e.getMessage());
-            // Publish rejection event
-            publishAssetReservationFailedEvent(orderId, customerId.toString(), e.getMessage());
-        }
+        publishAssetReservedEvent(orderId, customerId.toString(), assetName, orderSide,
+                price.toString(), size.toString(), tierPriority);
     }
 
     private void publishAssetReservedEvent(String orderId, String customerId, String assetName,

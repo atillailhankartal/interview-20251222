@@ -6,6 +6,7 @@ import {
   type Customer,
   type CustomerTier,
   type CustomerStatus,
+  type CustomerRole,
   type CustomerFilters,
   type CreateCustomerRequest,
   type UpdateCustomerRequest,
@@ -27,7 +28,8 @@ export const useCustomersStore = defineStore('customers', () => {
   const filters = ref<CustomerFilters>({
     search: undefined,
     tier: undefined,
-    status: undefined
+    status: undefined,
+    role: undefined
   })
 
   // Computed
@@ -196,6 +198,8 @@ export const useCustomersStore = defineStore('customers', () => {
       filters.value.tier = value as CustomerTier | undefined
     } else if (key === 'status') {
       filters.value.status = value as CustomerStatus | undefined
+    } else if (key === 'role') {
+      filters.value.role = value as CustomerRole | undefined
     }
     // Reset to first page when filter changes
     fetchCustomers(0)
@@ -205,7 +209,8 @@ export const useCustomersStore = defineStore('customers', () => {
     filters.value = {
       search: undefined,
       tier: undefined,
-      status: undefined
+      status: undefined,
+      role: undefined
     }
     fetchCustomers(0)
   }

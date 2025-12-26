@@ -294,7 +294,7 @@ public class FullTradingCycleIntegrationTest extends BaseIntegrationTest {
                     .until(() -> {
                         Response getResponse = getOrder(orderId);
                         String status = getResponse.jsonPath().getString("data.status");
-                        return "CANCELLED".equals(status) ||
+                        return "CANCELED".equals(status) ||
                                "MATCHED".equals(status) ||
                                "ORDER_CONFIRMED".equals(status) ||
                                "REJECTED".equals(status);
@@ -492,7 +492,7 @@ public class FullTradingCycleIntegrationTest extends BaseIntegrationTest {
                                 equalTo("ORDER_CONFIRMED"),
                                 equalTo("MATCHED"),
                                 equalTo("REJECTED"),
-                                equalTo("CANCELLED")
+                                equalTo("CANCELED")
                         ));
             }
         }

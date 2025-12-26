@@ -4,6 +4,7 @@ import api, { type ApiResponse, type PaginatedResponse } from './api'
 export interface Order {
   id: string
   customerId: string
+  customerName?: string  // Customer display name when available
   assetName: string
   orderSide: 'BUY' | 'SELL'
   size: number
@@ -23,7 +24,7 @@ export type OrderStatus =
   | 'ORDER_CONFIRMED'
   | 'MATCHED'
   | 'PARTIALLY_FILLED'
-  | 'CANCELLED'
+  | 'CANCELED'
   | 'REJECTED'
   | 'FAILED'
 

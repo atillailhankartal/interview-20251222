@@ -56,11 +56,29 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
+        path: 'customers/:id',
+        name: 'customer-detail',
+        component: () => import('@/views/CustomerDetailView.vue'),
+        meta: {
+          title: 'Customer Details',
+          roles: [ROLES.ADMIN, ROLES.BROKER]
+        }
+      },
+      {
         path: 'brokers',
         name: 'brokers',
         component: () => import('@/views/BrokersView.vue'),
         meta: {
           title: 'Brokers',
+          roles: [ROLES.ADMIN]
+        }
+      },
+      {
+        path: 'brokers/:id',
+        name: 'broker-detail',
+        component: () => import('@/views/BrokerDetailView.vue'),
+        meta: {
+          title: 'Broker Details',
           roles: [ROLES.ADMIN]
         }
       },

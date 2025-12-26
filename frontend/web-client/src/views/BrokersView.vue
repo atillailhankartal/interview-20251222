@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { brokerService, type Broker, type BrokerFilters, type CustomerStatus } from '@/services'
 
+const router = useRouter()
 const authStore = useAuthStore()
 
 const brokers = ref<Broker[]>([])
@@ -28,9 +30,9 @@ const isLastPage = computed(() => currentPage.value >= totalPages.value - 1)
 
 // Format currency
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'TRY',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   }).format(value)
@@ -110,6 +112,11 @@ const onSearchInput = (value: string) => {
   searchTimeout = setTimeout(() => {
     setFilter('search', value || undefined)
   }, 300)
+}
+
+// Navigation
+function viewBrokerDetail(brokerId: string) {
+  router.push({ name: 'broker-detail', params: { id: brokerId } })
 }
 
 onMounted(() => {
@@ -226,7 +233,12 @@ onMounted(() => {
                       {{ getInitials(broker.firstName, broker.lastName) }}
                     </div>
                     <div>
-                      <div class="font-medium text-mono">{{ broker.firstName }} {{ broker.lastName }}</div>
+                      <a
+                        @click="viewBrokerDetail(broker.id)"
+                        class="font-medium text-mono hover:text-primary cursor-pointer"
+                      >
+                        {{ broker.firstName }} {{ broker.lastName }}
+                      </a>
                       <div class="text-xs text-secondary-foreground">ID: {{ broker.id.substring(0, 8) }}...</div>
                     </div>
                   </div>
@@ -255,11 +267,12 @@ onMounted(() => {
                 <td class="text-secondary-foreground">{{ formatDate(broker.createdAt) }}</td>
                 <td>
                   <div class="flex items-center gap-1">
-                    <button class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost" title="View Details">
+                    <button
+                      @click="viewBrokerDetail(broker.id)"
+                      class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost text-primary"
+                      title="View Details"
+                    >
                       <i class="ki-filled ki-eye text-lg"></i>
-                    </button>
-                    <button class="kt-btn kt-btn-xs kt-btn-icon kt-btn-ghost" title="View Customers">
-                      <i class="ki-filled ki-users text-lg"></i>
                     </button>
                   </div>
                 </td>
