@@ -132,7 +132,7 @@ If you have any questions, feel free to reach out.
 
 ```bash
 # Clone the project
-git clone <repo-url>
+git clone https://github.com/atillailhankartal/interview-20251222.git
 cd interview-20251222
 
 # Start the system (single command!)

@@ -132,7 +132,7 @@ Herhangi bir sorunuz varsa benimle iletisime gecmekten cekinmeyin.
 
 ```bash
 # Projeyi klonlayin
-git clone <repo-url>
+git clone https://github.com/atillailhankartal/interview-20251222.git
 cd interview-20251222
 
 # Sistemi baslatin (tek komut!)
