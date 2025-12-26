@@ -30,7 +30,7 @@
 
 <div align="center">
 
-[![Orange Broker HUB Demo](https://img.youtube.com/vi/9IfDZtPDrYo/maxresdefault.jpg)](https://youtu.be/9IfDZtPDrYo)
+[![Orange Broker HUB Demo](https://img.youtube.com/vi/9IfDZtPDrYo/hqdefault.jpg)](https://youtu.be/9IfDZtPDrYo)
 
 **Tam demoyu izlemek icin tiklayiniz**
 
