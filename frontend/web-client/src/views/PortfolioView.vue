@@ -11,15 +11,15 @@ const customersStore = useCustomersStore()
 // Admin customer selection
 const selectedCustomerId = ref<string>('')
 const isAdmin = computed(() => authStore.hasRole('ADMIN'))
+const isCustomer = computed(() => authStore.hasRole('CUSTOMER'))
 
-// Deposit/Withdraw modal
-const showTransactionModal = ref(false)
-const transactionType = ref<'deposit' | 'withdraw'>('deposit')
-const transactionForm = ref({
-  assetName: 'TRY',
-  amount: 0
-})
-const transactionError = ref<string | null>(null)
+// Inline transaction forms
+const depositAmount = ref<number>(0)
+const withdrawAmount = ref<number>(0)
+const depositAsset = ref<string>('TRY')
+const withdrawAsset = ref<string>('TRY')
+const depositSuccess = ref<string | null>(null)
+const withdrawSuccess = ref<string | null>(null)
 
 // Computed stats
 const totalAssets = computed(() => assetsStore.totalAssets)
@@ -47,41 +47,49 @@ function blockedAmount(size: number, usableSize: number): number {
   return size - usableSize
 }
 
-// Open transaction modal
-function openTransactionModal(type: 'deposit' | 'withdraw') {
-  transactionType.value = type
-  transactionForm.value = { assetName: 'TRY', amount: 0 }
-  transactionError.value = null
-  showTransactionModal.value = true
-}
+// Submit deposit
+async function submitDeposit() {
+  if (depositAmount.value <= 0) return
 
-// Submit transaction
-async function submitTransaction() {
-  if (transactionForm.value.amount <= 0) {
-    transactionError.value = 'Amount must be greater than 0'
-    return
-  }
-
-  const customerId = isAdmin.value ? selectedCustomerId.value : authStore.user?.id
-  if (!customerId) {
-    transactionError.value = 'Please select a customer'
+  if (isAdmin.value && !selectedCustomerId.value) {
+    assetsStore.error = 'Please select a customer first'
     return
   }
 
   const request = {
-    customerId,
-    assetName: transactionForm.value.assetName,
-    amount: transactionForm.value.amount
+    customerId: isAdmin.value ? selectedCustomerId.value : undefined,
+    assetName: isCustomer.value ? 'TRY' : depositAsset.value,
+    amount: depositAmount.value
   }
 
-  const success = transactionType.value === 'deposit'
-    ? await assetsStore.deposit(request)
-    : await assetsStore.withdraw(request)
-
+  const success = await assetsStore.deposit(request)
   if (success) {
-    showTransactionModal.value = false
-  } else {
-    transactionError.value = assetsStore.error || 'Transaction failed'
+    depositSuccess.value = `₺${depositAmount.value.toLocaleString('tr-TR')} deposited successfully!`
+    depositAmount.value = 0
+    setTimeout(() => { depositSuccess.value = null }, 3000)
+  }
+}
+
+// Submit withdraw
+async function submitWithdraw() {
+  if (withdrawAmount.value <= 0) return
+
+  if (isAdmin.value && !selectedCustomerId.value) {
+    assetsStore.error = 'Please select a customer first'
+    return
+  }
+
+  const request = {
+    customerId: isAdmin.value ? selectedCustomerId.value : undefined,
+    assetName: isCustomer.value ? 'TRY' : withdrawAsset.value,
+    amount: withdrawAmount.value
+  }
+
+  const success = await assetsStore.withdraw(request)
+  if (success) {
+    withdrawSuccess.value = `₺${withdrawAmount.value.toLocaleString('tr-TR')} withdrawn successfully!`
+    withdrawAmount.value = 0
+    setTimeout(() => { withdrawSuccess.value = null }, 3000)
   }
 }
 
@@ -101,7 +109,6 @@ async function refreshAssets() {
 onMounted(async () => {
   if (isAdmin.value) {
     await customersStore.fetchOrderableCustomers()
-    // Select first customer if available
     if (customersStore.orderableCustomers.length > 0) {
       selectedCustomerId.value = customersStore.orderableCustomers[0]?.id ?? ''
       await assetsStore.fetchAssets(selectedCustomerId.value)
@@ -121,25 +128,6 @@ onMounted(async () => {
         <p class="text-sm text-secondary-foreground">View portfolio and balances</p>
       </div>
       <div class="flex items-center gap-2.5">
-        <!-- Admin: Deposit/Withdraw buttons -->
-        <template v-if="isAdmin">
-          <button
-            class="kt-btn kt-btn-success"
-            @click="openTransactionModal('deposit')"
-            :disabled="!selectedCustomerId"
-          >
-            <i class="ki-filled ki-plus-squared me-2"></i>
-            Deposit
-          </button>
-          <button
-            class="kt-btn kt-btn-warning"
-            @click="openTransactionModal('withdraw')"
-            :disabled="!selectedCustomerId"
-          >
-            <i class="ki-filled ki-minus-squared me-2"></i>
-            Withdraw
-          </button>
-        </template>
         <button class="kt-btn kt-btn-light" @click="refreshAssets" :disabled="assetsStore.loading">
           <i class="ki-filled ki-arrows-circle me-2" :class="{ 'animate-spin': assetsStore.loading }"></i>
           Refresh
@@ -166,7 +154,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- TRY Balance Card (Enhanced) -->
+    <!-- TRY Balance Card -->
     <div class="kt-card bg-gradient-to-br from-green-500/5 via-green-500/10 to-primary/5 border-green-500/20">
       <div class="kt-card-content p-8">
         <div class="grid md:grid-cols-2 gap-8">
@@ -236,6 +224,155 @@ onMounted(async () => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wallet Actions - Inline Cards -->
+    <div v-if="isCustomer || isAdmin" class="grid md:grid-cols-2 gap-5">
+      <!-- Deposit Card -->
+      <div class="kt-card border-green-500/30 bg-green-500/5">
+        <div class="kt-card-header bg-green-500/10">
+          <div class="flex items-center gap-3">
+            <div class="size-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+              <i class="ki-filled ki-plus-squared text-green-600 text-lg"></i>
+            </div>
+            <div>
+              <h3 class="kt-card-title text-green-700 dark:text-green-400">Deposit Funds</h3>
+              <p class="text-xs text-green-600/70">Add money to your wallet</p>
+            </div>
+          </div>
+        </div>
+        <div class="kt-card-content p-5">
+          <form @submit.prevent="submitDeposit" class="space-y-4">
+            <!-- Asset Selection (Admin only) -->
+            <div v-if="isAdmin" class="flex flex-col gap-2">
+              <label class="text-sm font-medium text-secondary-foreground">Asset</label>
+              <select v-model="depositAsset" class="kt-select">
+                <option value="TRY">TRY (Turkish Lira)</option>
+                <option value="AAPL">AAPL (Apple)</option>
+                <option value="GOOGL">GOOGL (Google)</option>
+                <option value="MSFT">MSFT (Microsoft)</option>
+                <option value="THYAO">THYAO (Turkish Airlines)</option>
+              </select>
+            </div>
+
+            <!-- Amount Input -->
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-medium text-secondary-foreground">Amount</label>
+              <div class="flex gap-2">
+                <div class="relative flex-1">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-green-600 font-medium">₺</span>
+                  <input
+                    type="number"
+                    v-model.number="depositAmount"
+                    min="0.01"
+                    step="0.01"
+                    class="kt-input pl-8"
+                    placeholder="0.00"
+                    :disabled="isAdmin && !selectedCustomerId"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  class="kt-btn kt-btn-success"
+                  :disabled="depositAmount <= 0 || assetsStore.depositing || (isAdmin && !selectedCustomerId)"
+                >
+                  <i v-if="assetsStore.depositing" class="ki-filled ki-loading animate-spin me-2"></i>
+                  Deposit
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick amounts -->
+            <div class="flex gap-2 flex-wrap">
+              <button type="button" @click="depositAmount = 100" class="kt-btn kt-btn-xs kt-btn-light">+₺100</button>
+              <button type="button" @click="depositAmount = 500" class="kt-btn kt-btn-xs kt-btn-light">+₺500</button>
+              <button type="button" @click="depositAmount = 1000" class="kt-btn kt-btn-xs kt-btn-light">+₺1,000</button>
+              <button type="button" @click="depositAmount = 5000" class="kt-btn kt-btn-xs kt-btn-light">+₺5,000</button>
+            </div>
+
+            <!-- Success message -->
+            <div v-if="depositSuccess" class="flex items-center gap-2 text-sm text-green-600 bg-green-500/10 rounded-lg p-3">
+              <i class="ki-filled ki-check-circle"></i>
+              {{ depositSuccess }}
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Withdraw Card -->
+      <div class="kt-card border-orange-500/30 bg-orange-500/5">
+        <div class="kt-card-header bg-orange-500/10">
+          <div class="flex items-center gap-3">
+            <div class="size-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+              <i class="ki-filled ki-minus-squared text-orange-600 text-lg"></i>
+            </div>
+            <div>
+              <h3 class="kt-card-title text-orange-700 dark:text-orange-400">Withdraw Funds</h3>
+              <p class="text-xs text-orange-600/70">Transfer to your bank account</p>
+            </div>
+          </div>
+        </div>
+        <div class="kt-card-content p-5">
+          <form @submit.prevent="submitWithdraw" class="space-y-4">
+            <!-- Asset Selection (Admin only) -->
+            <div v-if="isAdmin" class="flex flex-col gap-2">
+              <label class="text-sm font-medium text-secondary-foreground">Asset</label>
+              <select v-model="withdrawAsset" class="kt-select">
+                <option value="TRY">TRY (Turkish Lira)</option>
+                <option value="AAPL">AAPL (Apple)</option>
+                <option value="GOOGL">GOOGL (Google)</option>
+                <option value="MSFT">MSFT (Microsoft)</option>
+                <option value="THYAO">THYAO (Turkish Airlines)</option>
+              </select>
+            </div>
+
+            <!-- Amount Input -->
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-medium text-secondary-foreground">
+                Amount
+                <span class="text-xs text-secondary-foreground ml-1">(Max: {{ formatCurrency(assetsStore.tryUsable) }})</span>
+              </label>
+              <div class="flex gap-2">
+                <div class="relative flex-1">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-orange-600 font-medium">₺</span>
+                  <input
+                    type="number"
+                    v-model.number="withdrawAmount"
+                    min="0.01"
+                    step="0.01"
+                    :max="assetsStore.tryUsable"
+                    class="kt-input pl-8"
+                    placeholder="0.00"
+                    :disabled="isAdmin && !selectedCustomerId"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  class="kt-btn kt-btn-warning"
+                  :disabled="withdrawAmount <= 0 || assetsStore.withdrawing || (isAdmin && !selectedCustomerId)"
+                >
+                  <i v-if="assetsStore.withdrawing" class="ki-filled ki-loading animate-spin me-2"></i>
+                  Withdraw
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick amounts -->
+            <div class="flex gap-2 flex-wrap">
+              <button type="button" @click="withdrawAmount = 100" class="kt-btn kt-btn-xs kt-btn-light">-₺100</button>
+              <button type="button" @click="withdrawAmount = 500" class="kt-btn kt-btn-xs kt-btn-light">-₺500</button>
+              <button type="button" @click="withdrawAmount = 1000" class="kt-btn kt-btn-xs kt-btn-light">-₺1,000</button>
+              <button type="button" @click="withdrawAmount = assetsStore.tryUsable" class="kt-btn kt-btn-xs kt-btn-light">Max</button>
+            </div>
+
+            <!-- Success message -->
+            <div v-if="withdrawSuccess" class="flex items-center gap-2 text-sm text-orange-600 bg-orange-500/10 rounded-lg p-3">
+              <i class="ki-filled ki-check-circle"></i>
+              {{ withdrawSuccess }}
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -369,74 +506,5 @@ onMounted(async () => {
         </div>
       </div>
     </div>
-
-    <!-- Deposit/Withdraw Modal (Admin Only) -->
-    <Teleport to="body">
-      <div v-if="showTransactionModal && isAdmin" class="kt-modal kt-modal-center open" data-kt-modal="true">
-        <div class="kt-modal-content max-w-[400px]">
-          <div class="kt-modal-header">
-            <h3 class="kt-modal-title">
-              {{ transactionType === 'deposit' ? 'Deposit Funds' : 'Withdraw Funds' }}
-            </h3>
-            <button @click="showTransactionModal = false" class="kt-modal-close">
-              <i class="ki-filled ki-cross"></i>
-            </button>
-          </div>
-
-          <form @submit.prevent="submitTransaction">
-            <div class="kt-modal-body space-y-5">
-              <!-- Asset Selection -->
-              <div class="flex flex-col gap-2">
-                <label class="kt-form-label">Asset <span class="text-danger">*</span></label>
-                <select v-model="transactionForm.assetName" class="kt-select" required>
-                  <option value="TRY">TRY (Turkish Lira)</option>
-                  <option value="AAPL">AAPL (Apple)</option>
-                  <option value="GOOGL">GOOGL (Google)</option>
-                  <option value="MSFT">MSFT (Microsoft)</option>
-                  <option value="THYAO">THYAO (Turkish Airlines)</option>
-                </select>
-              </div>
-
-              <!-- Amount -->
-              <div class="flex flex-col gap-2">
-                <label class="kt-form-label">Amount <span class="text-danger">*</span></label>
-                <input
-                  type="number"
-                  v-model.number="transactionForm.amount"
-                  min="0.01"
-                  step="0.01"
-                  class="kt-input"
-                  placeholder="Enter amount..."
-                  required
-                />
-              </div>
-
-              <!-- Error -->
-              <div v-if="transactionError" class="kt-alert kt-alert-danger">
-                <i class="ki-filled ki-information-2 me-2"></i>
-                {{ transactionError }}
-              </div>
-            </div>
-
-            <div class="kt-modal-footer">
-              <button type="button" @click="showTransactionModal = false" class="kt-btn kt-btn-light">
-                Cancel
-              </button>
-              <button
-                type="submit"
-                class="kt-btn"
-                :class="transactionType === 'deposit' ? 'kt-btn-success' : 'kt-btn-warning'"
-                :disabled="assetsStore.depositing || assetsStore.withdrawing"
-              >
-                <span v-if="assetsStore.depositing || assetsStore.withdrawing" class="animate-spin me-2">
-                  <i class="ki-filled ki-loading"></i>
-                </span>
-                {{ transactionType === 'deposit' ? 'Deposit' : 'Withdraw' }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
   </div>
 </template>

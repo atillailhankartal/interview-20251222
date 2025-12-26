@@ -239,10 +239,14 @@ public class DashboardService {
     private Mono<DashboardDTO> buildCustomerDashboard(String userId, String username, String token) {
         return Mono.zip(
                 fetchOrderStatsForCustomer(userId, token),
-                fetchCustomerAssetStats(userId, token)
+                fetchCustomerAssetStats(userId, token),
+                fetchCustomerHoldings(userId, token),
+                fetchCustomerRecentOrders(userId, token)
         ).map(tuple -> {
             OrderStats orderStats = tuple.getT1();
             AssetStats assetStats = tuple.getT2();
+            List<AssetHolding> holdings = tuple.getT3();
+            List<RecentOrder> myOrders = tuple.getT4();
 
             return DashboardDTO.builder()
                     .role("CUSTOMER")
@@ -255,14 +259,89 @@ public class DashboardService {
                             .portfolioValue(assetStats.getPortfolioValue())
                             .dailyPnL(BigDecimal.ZERO)
                             .weeklyPnL(BigDecimal.ZERO)
-                            .holdings(List.of())
-                            .myOrders(List.of())
+                            .holdings(holdings)
+                            .myOrders(myOrders)
                             .build())
                     .build();
         }).onErrorResume(e -> {
             log.error("Error building customer dashboard", e);
             return Mono.just(createEmptyDashboard("CUSTOMER", userId, username));
         });
+    }
+
+    @SuppressWarnings("unchecked")
+    private Mono<List<AssetHolding>> fetchCustomerHoldings(String customerId, String token) {
+        return assetServiceClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/assets")
+                        .queryParam("customerId", customerId)
+                        .build())
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .map(response -> {
+                    Object dataObj = response.get("data");
+                    List<Map<String, Object>> assets = List.of();
+                    if (dataObj instanceof List) {
+                        assets = (List<Map<String, Object>>) dataObj;
+                    }
+                    return assets.stream()
+                            .map(asset -> AssetHolding.builder()
+                                    .assetName((String) asset.get("assetName"))
+                                    .size(getBigDecimal(asset, "size"))
+                                    .usableSize(getBigDecimal(asset, "usableSize"))
+                                    .currentPrice(getBigDecimal(asset, "currentPrice"))
+                                    .value(getBigDecimal(asset, "marketValue"))
+                                    .build())
+                            .toList();
+                })
+                .onErrorResume(e -> {
+                    log.warn("Error fetching customer holdings: {}", e.getMessage());
+                    return Mono.just(List.of());
+                });
+    }
+
+    @SuppressWarnings("unchecked")
+    private Mono<List<RecentOrder>> fetchCustomerRecentOrders(String customerId, String token) {
+        return orderServiceClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/orders")
+                        .queryParam("customerId", customerId)
+                        .queryParam("size", 10)
+                        .build())
+                .header("Authorization", "Bearer " + token)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .map(response -> {
+                    Object dataObj = response.get("data");
+                    List<Map<String, Object>> orders = List.of();
+                    if (dataObj instanceof Map) {
+                        Map<String, Object> pageData = (Map<String, Object>) dataObj;
+                        Object content = pageData.get("content");
+                        if (content instanceof List) {
+                            orders = (List<Map<String, Object>>) content;
+                        }
+                    } else if (dataObj instanceof List) {
+                        orders = (List<Map<String, Object>>) dataObj;
+                    }
+                    return orders.stream()
+                            .map(order -> RecentOrder.builder()
+                                    .id((String) order.get("id"))
+                                    .customerId((String) order.get("customerId"))
+                                    .assetName((String) order.get("assetName"))
+                                    .orderSide((String) order.get("orderSide"))
+                                    .size(getBigDecimal(order, "size"))
+                                    .price(getBigDecimal(order, "price"))
+                                    .status((String) order.get("status"))
+                                    .createdAt(parseDateTime(order.get("createdAt")))
+                                    .build())
+                            .limit(10)
+                            .toList();
+                })
+                .onErrorResume(e -> {
+                    log.warn("Error fetching customer orders: {}", e.getMessage());
+                    return Mono.just(List.of());
+                });
     }
 
     private Mono<OrderStats> fetchOrderStats(String token) {
@@ -357,6 +436,7 @@ public class DashboardService {
                 .onErrorReturn(createEmptyAssetStats());
     }
 
+    @SuppressWarnings("unchecked")
     private Mono<AssetStats> fetchCustomerAssetStats(String customerId, String token) {
         return assetServiceClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -365,9 +445,19 @@ public class DashboardService {
                         .build())
                 .header("Authorization", "Bearer " + token)
                 .retrieve()
-                .bodyToMono(List.class)
-                .map(this::mapAssetsToStats)
-                .onErrorReturn(createEmptyAssetStats());
+                .bodyToMono(Map.class)
+                .map(response -> {
+                    Object dataObj = response.get("data");
+                    List<Map<String, Object>> assets = List.of();
+                    if (dataObj instanceof List) {
+                        assets = (List<Map<String, Object>>) dataObj;
+                    }
+                    return mapAssetsToStats(assets);
+                })
+                .onErrorResume(e -> {
+                    log.warn("Error fetching customer asset stats: {}", e.getMessage());
+                    return Mono.just(createEmptyAssetStats());
+                });
     }
 
     private Mono<SystemHealth> fetchSystemHealth(String token) {

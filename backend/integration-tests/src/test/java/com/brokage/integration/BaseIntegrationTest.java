@@ -47,12 +47,12 @@ public abstract class BaseIntegrationTest {
     protected static final String CLIENT_SECRET = "brokage-api-secret";
     protected static final String REALM = "brokage";
 
-    // Test users (passwords from realm-export.json)
-    protected static final String ADMIN_USERNAME = "admin";
+    // Test users (usernames and passwords from realm-export.json)
+    protected static final String ADMIN_USERNAME = "nick.fury";
     protected static final String ADMIN_PASSWORD = "admin123";
-    protected static final String CUSTOMER_USERNAME = "customer1";
+    protected static final String CUSTOMER_USERNAME = "peter.parker";
     protected static final String CUSTOMER_PASSWORD = "customer123";
-    protected static final String BROKER_USERNAME = "broker1";
+    protected static final String BROKER_USERNAME = "tony.stark";
     protected static final String BROKER_PASSWORD = "broker123";
 
     // Token cache

@@ -892,7 +892,8 @@ onMounted(async () => {
     <!-- Cancel Confirmation Modal -->
     <Teleport to="body">
       <div v-if="showCancelConfirm" class="kt-modal kt-modal-center open" data-kt-modal="true">
-        <div class="kt-modal-content max-w-[400px]">
+        <div class="kt-modal-backdrop" @click="showCancelConfirm = false"></div>
+        <div class="kt-modal-content max-w-[400px] relative z-10">
           <div class="kt-modal-header">
             <h3 class="kt-modal-title">Cancel Order?</h3>
             <button @click="showCancelConfirm = false" class="kt-modal-close">

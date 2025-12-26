@@ -15,7 +15,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class DepositWithdrawRequest {
 
-    @NotNull(message = "Customer ID is required")
+    // Optional - for CUSTOMER role, will be resolved from JWT token
+    // Required for ADMIN role
     private UUID customerId;
 
     @NotBlank(message = "Asset name is required")

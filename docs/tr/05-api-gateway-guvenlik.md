@@ -116,6 +116,41 @@ flowchart TB
     AUTH --> G3
 ```
 
+### Tier Bazli Rate Limiting
+
+Musteri tier'lari uygulama katmaninda farkli rate limit'lere sahiptir:
+
+```mermaid
+flowchart TB
+    subgraph Gateway["Traefik Gateway"]
+        GLOBAL_RL["Global Rate Limit<br/>100 req/sn temel"]
+    end
+
+    subgraph Application["Uygulama Katmani"]
+        subgraph TierLimits["Tier Bazli Limitler (dakika basina)"]
+            VIP["VIP Tier<br/>1000 req/dk"]
+            PREMIUM["Premium Tier<br/>500 req/dk"]
+            STANDARD["Standard Tier<br/>100 req/dk"]
+        end
+    end
+
+    subgraph Headers["Yanit Basliklari"]
+        H1["X-RateLimit-Limit"]
+        H2["X-RateLimit-Remaining"]
+        H3["X-RateLimit-Reset"]
+        H4["X-Customer-Tier"]
+    end
+
+    Gateway --> Application
+    TierLimits --> Headers
+```
+
+**Implementasyon:**
+- Gateway temel rate limiting uygular (100 req/sn global)
+- Uygulama katmani (`TierRateLimitFilter`) tier-bazli limit uygular
+- Tier, JWT `customer_tier` claim'inden alinir
+- Rate limit basliklari yanita eklenir
+
 ### Security Headers
 
 ```mermaid
@@ -262,7 +297,7 @@ sequenceDiagram
     end
 ```
 
-### Admin Match Islemi - Sadece ADMIN
+### Match Islemi - ADMIN ve BROKER
 
 ```mermaid
 sequenceDiagram
@@ -277,14 +312,23 @@ sequenceDiagram
 
     S->>SEC: JWT Token Coz
     SEC->>SEC: Rol Kontrolu
-    Note right of SEC: Gerekli Rol: ADMIN
+    Note right of SEC: Gerekli Rol: ADMIN veya BROKER
 
     alt roles contains ADMIN
         SEC-->>S: Yetkili
         S->>S: Emri Eslestir
         S-->>C: 200 OK - Matched
+    else roles contains BROKER
+        SEC->>SEC: Alt Musteri Kontrolu
+        alt Emir alt musteriye ait
+            SEC-->>S: Yetkili
+            S->>S: Emri Eslestir
+            S-->>C: 200 OK - Matched
+        else Alt musteri degil
+            SEC-->>C: 403 Forbidden
+        end
     else CUSTOMER veya Baska
-        SEC-->>C: 403 Forbidden<br/>Admin yetkisi gerekli
+        SEC-->>C: 403 Forbidden<br/>Admin veya Broker yetkisi gerekli
     end
 ```
 
@@ -640,7 +684,7 @@ flowchart TB
         BR1[Alt musteriler icin emir]
         BR2[Alt musteri emirleri]
         BR3[Alt musteri emirlerini iptal]
-        BR4[Erisim Yok]
+        BR4[Alt musteri emirlerini eslestir]
         BR5[Alt musteri varliklari]
         BR6[Alt musteriye yatir]
         BR7[Erisim Yok]
@@ -656,7 +700,7 @@ flowchart TB
         CU7[Kendi hesabindan cek]
     end
 
-    style BR4 fill:#f99
+    style BR4 fill:#9f9
     style BR7 fill:#f99
     style CU4 fill:#f99
     style CU6 fill:#f99

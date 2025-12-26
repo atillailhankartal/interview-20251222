@@ -4,14 +4,50 @@
 
 http:
   middlewares:
+    # =========================================================================
     # Rate Limiting - Global
+    # =========================================================================
     rate-limit-global:
       rateLimit:
         average: 100
         burst: 50
         period: 1s
 
-    # Rate Limiting - Orders API
+    # =========================================================================
+    # Rate Limiting - Tier Based (per minute limits)
+    # Services must add X-Customer-Tier header after JWT validation
+    # =========================================================================
+
+    # VIP Tier: 1000 requests/minute (16.67/sec)
+    rate-limit-vip:
+      rateLimit:
+        average: 17
+        burst: 50
+        period: 1s
+        sourceCriterion:
+          requestHeaderName: "X-Request-Id"
+
+    # Premium Tier: 500 requests/minute (8.33/sec)
+    rate-limit-premium:
+      rateLimit:
+        average: 9
+        burst: 25
+        period: 1s
+        sourceCriterion:
+          requestHeaderName: "X-Request-Id"
+
+    # Standard Tier: 100 requests/minute (1.67/sec)
+    rate-limit-standard:
+      rateLimit:
+        average: 2
+        burst: 10
+        period: 1s
+        sourceCriterion:
+          requestHeaderName: "X-Request-Id"
+
+    # =========================================================================
+    # Rate Limiting - Orders API (applies to all tiers as baseline)
+    # =========================================================================
     rate-limit-orders:
       rateLimit:
         average: 10

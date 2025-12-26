@@ -116,6 +116,41 @@ flowchart TB
     AUTH --> G3
 ```
 
+### Tier-Based Rate Limiting
+
+Customer tiers have different rate limits applied at the application layer:
+
+```mermaid
+flowchart TB
+    subgraph Gateway["Traefik Gateway"]
+        GLOBAL_RL["Global Rate Limit<br/>100 req/s baseline"]
+    end
+
+    subgraph Application["Application Layer"]
+        subgraph TierLimits["Tier-Based Limits (per minute)"]
+            VIP["VIP Tier<br/>1000 req/min"]
+            PREMIUM["Premium Tier<br/>500 req/min"]
+            STANDARD["Standard Tier<br/>100 req/min"]
+        end
+    end
+
+    subgraph Headers["Response Headers"]
+        H1["X-RateLimit-Limit"]
+        H2["X-RateLimit-Remaining"]
+        H3["X-RateLimit-Reset"]
+        H4["X-Customer-Tier"]
+    end
+
+    Gateway --> Application
+    TierLimits --> Headers
+```
+
+**Implementation:**
+- Gateway applies baseline rate limiting (100 req/s global)
+- Application layer (`TierRateLimitFilter`) applies tier-specific limits
+- Tier is extracted from JWT `customer_tier` claim
+- Rate limit headers are returned in responses
+
 ### Security Headers
 
 ```mermaid
@@ -262,7 +297,7 @@ sequenceDiagram
     end
 ```
 
-### Admin Match Operation - ADMIN Only
+### Match Operation - ADMIN and BROKER
 
 ```mermaid
 sequenceDiagram
@@ -277,14 +312,23 @@ sequenceDiagram
 
     S->>SEC: Parse JWT Token
     SEC->>SEC: Role Check
-    Note right of SEC: Required Role: ADMIN
+    Note right of SEC: Required Role: ADMIN or BROKER
 
     alt roles contains ADMIN
         SEC-->>S: Authorized
         S->>S: Match Order
         S-->>C: 200 OK - Matched
+    else roles contains BROKER
+        SEC->>SEC: Check Sub-Customer
+        alt Order belongs to sub-customer
+            SEC-->>S: Authorized
+            S->>S: Match Order
+            S-->>C: 200 OK - Matched
+        else Not sub-customer
+            SEC-->>C: 403 Forbidden
+        end
     else CUSTOMER or Other
-        SEC-->>C: 403 Forbidden<br/>Admin permission required
+        SEC-->>C: 403 Forbidden<br/>Admin or Broker permission required
     end
 ```
 
@@ -640,7 +684,7 @@ flowchart TB
         BR1[Order for sub-customers]
         BR2[View sub-customer orders]
         BR3[Cancel sub-customer orders]
-        BR4[No Access]
+        BR4[Match sub-customer orders]
         BR5[View sub-customer assets]
         BR6[Deposit to sub-customers]
         BR7[No Access]
@@ -656,7 +700,7 @@ flowchart TB
         CU7[Withdraw from own account]
     end
 
-    style BR4 fill:#f99
+    style BR4 fill:#9f9
     style BR7 fill:#f99
     style CU4 fill:#f99
     style CU6 fill:#f99

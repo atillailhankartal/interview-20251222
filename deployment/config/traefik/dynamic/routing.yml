@@ -18,6 +18,8 @@ http:
       service: asset-service
       middlewares:
         - cors-dev
+        - rate-limit-global
+        - secure-headers
 
     # Order Service - Orders
     order-service:
@@ -28,6 +30,7 @@ http:
       middlewares:
         - cors-dev
         - rate-limit-orders
+        - secure-headers
 
     # Customer Service - Customers
     customer-service:
@@ -37,6 +40,8 @@ http:
       service: customer-service
       middlewares:
         - cors-dev
+        - rate-limit-global
+        - secure-headers
 
     # Notification Service - Notifications
     notification-service:
@@ -46,6 +51,8 @@ http:
       service: notification-service
       middlewares:
         - cors-dev
+        - rate-limit-global
+        - secure-headers
 
     # Audit Service - Audit logs
     audit-service:
@@ -55,6 +62,8 @@ http:
       service: audit-service
       middlewares:
         - cors-dev
+        - rate-limit-global
+        - secure-headers
 
     # ---------------------------------------------------------------------------
     # Infrastructure Routes (Host based)

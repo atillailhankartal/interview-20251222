@@ -144,10 +144,11 @@ public class CustomerClient {
     /**
      * Get customer ID by email.
      * Used when customer_id claim is not in JWT.
+     * Uses internal endpoint (no authentication required for service-to-service calls).
      */
     public UUID getCustomerIdByEmail(String email) {
         try {
-            String url = customerServiceUrl + "/api/customers/by-email?email=" + email;
+            String url = customerServiceUrl + "/internal/customers/by-email?email=" + email;
             log.debug("Getting customer ID for email {} at {}", email, url);
 
             @SuppressWarnings("unchecked")

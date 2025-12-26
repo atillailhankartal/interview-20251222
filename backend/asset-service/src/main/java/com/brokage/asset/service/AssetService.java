@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -295,11 +296,15 @@ public class AssetService {
 
     private void createOutboxEvent(String eventType, UUID aggregateId, Map<String, String> payload) {
         try {
+            // Add eventType to payload for downstream consumers
+            Map<String, String> enrichedPayload = new HashMap<>(payload);
+            enrichedPayload.put("eventType", eventType);
+
             OutboxEvent event = OutboxEvent.builder()
                     .aggregateType("CustomerAsset")
                     .aggregateId(aggregateId)
                     .eventType(eventType)
-                    .payload(objectMapper.writeValueAsString(payload))
+                    .payload(objectMapper.writeValueAsString(enrichedPayload))
                     .topic("asset." + eventType.toLowerCase().replace("event", ""))
                     .processed(false)
                     .retryCount(0)

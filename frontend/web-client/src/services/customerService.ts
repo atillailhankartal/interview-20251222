@@ -1,6 +1,10 @@
 import api, { type ApiResponse, type PaginatedResponse } from './api'
 
 // Customer types
+export type CustomerTier = 'STANDARD' | 'PREMIUM' | 'VIP'
+export type CustomerStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
+export type CustomerRole = 'CUSTOMER' | 'BROKER' | 'ADMIN'
+
 export interface Customer {
   id: string
   keycloakId?: string
@@ -10,14 +14,12 @@ export interface Customer {
   phone?: string
   tier: CustomerTier
   status: CustomerStatus
+  role?: CustomerRole
   brokerId?: string
   brokerName?: string
   createdAt: string
   updatedAt: string
 }
-
-export type CustomerTier = 'STANDARD' | 'PREMIUM' | 'VIP'
-export type CustomerStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
 
 export interface CreateCustomerRequest {
   email: string
@@ -36,8 +38,6 @@ export interface UpdateCustomerRequest {
   status?: CustomerStatus
   brokerId?: string
 }
-
-export type CustomerRole = 'CUSTOMER' | 'BROKER' | 'ADMIN'
 
 export interface CustomerFilters {
   search?: string

@@ -74,10 +74,25 @@ public class AssetController {
     }
 
     @PostMapping("/deposit")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BROKER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
     public ResponseEntity<ApiResponse<CustomerAssetDTO>> deposit(
             @Valid @RequestBody DepositWithdrawRequest request,
             @AuthenticationPrincipal Jwt jwt) {
+
+        // CUSTOMER can only deposit TRY to their own account
+        if (hasRole(jwt, "CUSTOMER")) {
+            UUID ownCustomerId = resolveCustomerId(null, jwt);
+            request.setCustomerId(ownCustomerId);
+
+            if (!"TRY".equals(request.getAssetName())) {
+                throw new IllegalArgumentException("Customers can only deposit TRY");
+            }
+        } else {
+            // ADMIN must provide customerId
+            if (request.getCustomerId() == null) {
+                throw new IllegalArgumentException("Customer ID is required for admin operations");
+            }
+        }
 
         log.info("Deposit request: customerId={}, asset={}, amount={}",
                 request.getCustomerId(), request.getAssetName(), request.getAmount());
@@ -88,10 +103,25 @@ public class AssetController {
     }
 
     @PostMapping("/withdraw")
-    @PreAuthorize("hasAnyRole('ADMIN', 'BROKER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
     public ResponseEntity<ApiResponse<CustomerAssetDTO>> withdraw(
             @Valid @RequestBody DepositWithdrawRequest request,
             @AuthenticationPrincipal Jwt jwt) {
+
+        // CUSTOMER can only withdraw TRY from their own account
+        if (hasRole(jwt, "CUSTOMER")) {
+            UUID ownCustomerId = resolveCustomerId(null, jwt);
+            request.setCustomerId(ownCustomerId);
+
+            if (!"TRY".equals(request.getAssetName())) {
+                throw new IllegalArgumentException("Customers can only withdraw TRY");
+            }
+        } else {
+            // ADMIN must provide customerId
+            if (request.getCustomerId() == null) {
+                throw new IllegalArgumentException("Customer ID is required for admin operations");
+            }
+        }
 
         log.info("Withdrawal request: customerId={}, asset={}, amount={}",
                 request.getCustomerId(), request.getAssetName(), request.getAmount());

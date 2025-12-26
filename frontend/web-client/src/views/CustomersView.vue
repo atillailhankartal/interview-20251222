@@ -434,7 +434,8 @@ onMounted(() => {
     <!-- Create Customer Modal -->
     <Teleport to="body">
       <div v-if="showCreateModal" class="kt-modal kt-modal-center open" data-kt-modal="true">
-        <div class="kt-modal-content max-w-[500px]">
+        <div class="kt-modal-backdrop" @click="closeCreateModal"></div>
+        <div class="kt-modal-content max-w-[500px] relative z-10">
           <div class="kt-modal-header">
             <h3 class="kt-modal-title">Add New Customer</h3>
             <button @click="closeCreateModal" class="kt-modal-close">
@@ -496,7 +497,8 @@ onMounted(() => {
     <!-- Edit Customer Modal -->
     <Teleport to="body">
       <div v-if="showEditModal" class="kt-modal kt-modal-center open" data-kt-modal="true">
-        <div class="kt-modal-content max-w-[500px]">
+        <div class="kt-modal-backdrop" @click="closeEditModal"></div>
+        <div class="kt-modal-content max-w-[500px] relative z-10">
           <div class="kt-modal-header">
             <h3 class="kt-modal-title">Edit Customer</h3>
             <button @click="closeEditModal" class="kt-modal-close">
@@ -557,7 +559,8 @@ onMounted(() => {
     <!-- Delete Confirmation Modal -->
     <Teleport to="body">
       <div v-if="showDeleteConfirm" class="kt-modal kt-modal-center open" data-kt-modal="true">
-        <div class="kt-modal-content max-w-[400px]">
+        <div class="kt-modal-backdrop" @click="showDeleteConfirm = false"></div>
+        <div class="kt-modal-content max-w-[400px] relative z-10">
           <div class="kt-modal-header">
             <h3 class="kt-modal-title">Delete Customer?</h3>
             <button @click="showDeleteConfirm = false" class="kt-modal-close">

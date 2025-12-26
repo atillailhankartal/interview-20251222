@@ -37,8 +37,9 @@ export const useAssetsStore = defineStore('assets', () => {
     error.value = null
 
     try {
-      // If no customerId provided and user is CUSTOMER, use their own ID
-      const targetCustomerId = customerId || (authStore.hasRole('CUSTOMER') ? authStore.user?.id : undefined)
+      // For CUSTOMER role, don't pass customerId - backend extracts from JWT token
+      // For ADMIN role, pass customerId if provided to view specific customer's assets
+      const targetCustomerId = authStore.hasRole('CUSTOMER') ? undefined : customerId
       const response = await assetService.getCustomerAssets(targetCustomerId)
 
       if (response.success && response.data) {
@@ -63,6 +64,7 @@ export const useAssetsStore = defineStore('assets', () => {
 
       if (response.success) {
         // Refresh assets after deposit
+        // For CUSTOMER role, fetchAssets ignores customerId and uses JWT
         await fetchAssets(request.customerId)
         return true
       } else {
@@ -87,6 +89,7 @@ export const useAssetsStore = defineStore('assets', () => {
 
       if (response.success) {
         // Refresh assets after withdrawal
+        // For CUSTOMER role, fetchAssets ignores customerId and uses JWT
         await fetchAssets(request.customerId)
         return true
       } else {

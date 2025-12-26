@@ -25,7 +25,12 @@ public class OrderEventConsumer {
 
         try {
             JsonNode event = objectMapper.readTree(record.value());
-            String eventType = event.get("eventType").asText();
+            JsonNode eventTypeNode = event.get("eventType");
+            if (eventTypeNode == null) {
+                log.warn("Event type is null, skipping event");
+                return;
+            }
+            String eventType = eventTypeNode.asText();
 
             switch (eventType) {
                 case "OrderCreatedEvent" -> handleOrderCreated(event);

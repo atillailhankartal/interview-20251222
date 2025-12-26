@@ -17,13 +17,13 @@ export interface CustomerAsset {
 }
 
 export interface DepositRequest {
-  customerId: string
+  customerId?: string  // Optional - backend uses JWT for CUSTOMER role
   assetName: string
   amount: number
 }
 
 export interface WithdrawRequest {
-  customerId: string
+  customerId?: string  // Optional - backend uses JWT for CUSTOMER role
   assetName: string
   amount: number
 }

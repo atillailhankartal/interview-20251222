@@ -22,6 +22,7 @@ public class OutboxPublisher {
 
     private static final int BATCH_SIZE = 100;
     private static final int MAX_RETRIES = 3;
+    private static final String ORDER_EVENTS_TOPIC = "order-events";
 
     @Scheduled(fixedDelay = 1000)
     @Transactional
@@ -40,7 +41,7 @@ public class OutboxPublisher {
         for (OutboxEvent event : events) {
             try {
                 kafkaTemplate.send(
-                        event.getTopic(),
+                        ORDER_EVENTS_TOPIC,
                         event.getPartitionKey(),
                         event.getPayload()
                 ).get();
@@ -48,7 +49,7 @@ public class OutboxPublisher {
                 event.markAsProcessed();
                 outboxEventRepository.save(event);
 
-                log.debug("Published event {} to topic {}", event.getId(), event.getTopic());
+                log.debug("Published event {} to topic {}", event.getId(), ORDER_EVENTS_TOPIC);
             } catch (Exception e) {
                 log.error("Failed to publish event {}: {}", event.getId(), e.getMessage());
                 event.markAsFailed(e.getMessage());
