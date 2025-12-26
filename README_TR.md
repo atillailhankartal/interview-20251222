@@ -38,7 +38,7 @@ Merhaba! Bu projeyi incelediginiz icin tesekkur ederim. Asagida projeyi degerlen
 
 ### Zaman ve Kapsam
 
-- Bu proje **[X gun/hafta]** icerisinde gelistirilmistir
+- Bu proje **5 gun** icerisinde gelistirilmistir
 - Amac, production-ready bir sistem degil, **mimari yetenekleri gostermektir**
 
 ### AI Araclari Kullanimi

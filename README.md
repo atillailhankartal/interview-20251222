@@ -38,7 +38,7 @@ Hello! Thank you for reviewing this project. Below are some points I'd like you 
 
 ### Time and Scope
 
-- This project was developed within **[X days/weeks]**
+- This project was developed within **5 days**
 - The goal is not a production-ready system, but to **demonstrate architectural capabilities**
 
 ### AI Tools Usage
