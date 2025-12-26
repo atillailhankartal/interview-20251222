@@ -26,6 +26,18 @@
 
 ---
 
+## 🎬 Demo Video
+
+<div align="center">
+
+[![Orange Broker HUB Demo](https://img.youtube.com/vi/9IfDZtPDrYo/maxresdefault.jpg)](https://youtu.be/9IfDZtPDrYo)
+
+**Click to watch the full demo on YouTube**
+
+</div>
+
+---
+
 ## Dear Reviewer
 
 > **This section is for you. Notes I'd like you to consider while evaluating this project:**

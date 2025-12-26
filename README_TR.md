@@ -26,6 +26,18 @@
 
 ---
 
+## 🎬 Demo Video
+
+<div align="center">
+
+[![Orange Broker HUB Demo](https://img.youtube.com/vi/9IfDZtPDrYo/maxresdefault.jpg)](https://youtu.be/9IfDZtPDrYo)
+
+**Tam demoyu izlemek icin tiklayiniz**
+
+</div>
+
+---
+
 ## Degerli Reviewer
 
 > **Bu bolum sizin icindir. Projeyi degerlendirirken dikkate almanizi istedigim notlar:**
